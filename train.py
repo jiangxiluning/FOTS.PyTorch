@@ -1,14 +1,16 @@
-import os
+import argparse
 import json
 import logging
-import argparse
+import os
+
 import torch
-from model.model import *
+
+from data_loader import MnistDataLoader
+from logger import Logger
 from model.loss import *
 from model.metric import *
-from data_loader import MnistDataLoader
+from model.model import *
 from trainer import Trainer
-from logger import Logger
 
 logging.basicConfig(level=logging.INFO, format='')
 
