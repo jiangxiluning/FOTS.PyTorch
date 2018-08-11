@@ -1,7 +1,6 @@
 import torch.nn as nn
-import pretrainedmodels as pm
-from pretrainedmodels import utils
 import torch.nn.functional as F
+
 
 class ShardedConv(nn.Module):
     '''
@@ -19,8 +18,6 @@ class ShardedConv(nn.Module):
         self.conv4Output = None
         self.__register_hooks()
 
-
-
         # Top layer
         self.toplayer = nn.Conv2d(2048, 256, kernel_size = 1, stride = 1, padding = 0)  # Reduce channels
 
@@ -34,11 +31,14 @@ class ShardedConv(nn.Module):
     def forward(self, input):
 
         # bottom up
+        outputFeatures = self.backbone.features(input)  # n * 7 * 7 * 2048
+        p5 = self.toplayer(outputFeatures)
+        p4 = self.__upsample_add(p5, self.latlayer1(self.conv4Output))
+        p3 = self.__upsample_add(p4, self.latlayer2(self.conv3Output))
+        p2 = self.__upsample_add(p3, self.latlayer3(self.conv2Output))
+        p2 = self.smooth(p2)
 
-        output_features = self.backbone.features(input)  # n * 7 * 7 * 2048
-
-
-        pass
+        return p2
 
     def __upsample_add(self, x, y):
         '''Upsample and add two feature maps.
@@ -66,8 +66,17 @@ class ShardedConv(nn.Module):
 
     def __register_hooks(self):
 
-        def forward_hook(model, input, output):
-            pass
+        def forward_hook_conv2(module, input, output):
+            self.conv2Output = output
 
-        pass
+        def forward_hook_conv3(module, input, output):
+            self.conv3Output = output
+
+        def forward_hook_conv4(module, input, output):
+            self.conv4Output = output
+
+        # get intermediate output of pretrained model
+        self.backbone.layer1[2].relu.register_forward_hook(forward_hook_conv2)
+        self.backbone.layer1[2].relu.register_forward_hook(forward_hook_conv3)
+        self.backbone.layer1[2].relu.register_forward_hook(forward_hook_conv4)
 
