@@ -18,7 +18,7 @@ class SharedConv(nn.Module):
         self.conv4Output = None
         self.__register_hooks()
 
-        # Top layer
+        # Feature-merging branch
         self.toplayer = nn.Conv2d(2048, 256, kernel_size = 1, stride = 1, padding = 0)  # Reduce channels
 
         self.mergeLayers0 = DummyLayer()
@@ -30,6 +30,11 @@ class SharedConv(nn.Module):
         self.mergeLayers4 = nn.Conv2d(32, 32, kernel_size = 3)
         self.bn5 = nn.BatchNorm2d(32)
 
+        # Output Layer
+        self.textScale = 512
+        self.scoreMap = nn.Conv2d(32, 1, kernel_size = 1)
+        self.geoMap = nn.Conv2d(32, 4, kernel_size = 1)
+        self.angleMap = nn.Conv2d(32, 1, kernel_size = 1)
 
 
 
@@ -65,7 +70,18 @@ class SharedConv(nn.Module):
         g[4] = self.bn5(g[4])
         g[4] = F.relu(g[4])
 
-        return g[4]
+        score = self.scoreMap(g[4])
+        score = F.sigmoid(score)
+
+        geoMap = self.geoMap(g[4])
+        geoMap = F.sigmoid(geoMap)
+
+        angleMap = self.angleMap(g[4])
+        angleMap = F.sigmoid(angleMap)
+
+        geometry = torch.cat([geoMap, angleMap], dim = -1)
+
+        return score, geometry
 
     def __unpool(self, input):
         _, _, H, W = input.size()
