@@ -8,6 +8,8 @@ def loss(lambda_reg, lambda_recog):
 def detection_loss(lambda_reg):
     return cls_of_detection_loss() + lambda_reg * reg_of_detection_loss()
 
+def my_loss(y_input, y_target):
+    return F.nll_loss(y_input, y_target)
 
 def recognition_loss():
     pass
