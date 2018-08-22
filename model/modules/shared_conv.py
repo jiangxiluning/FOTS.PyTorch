@@ -1,6 +1,10 @@
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
+import math
+
+SPEEDUP_SCALE = 512
+
 
 class SharedConv(nn.Module):
     '''
@@ -36,10 +40,9 @@ class SharedConv(nn.Module):
         self.geoMap = nn.Conv2d(32, 4, kernel_size = 1)
         self.angleMap = nn.Conv2d(32, 1, kernel_size = 1)
 
-
-
-
     def forward(self, input):
+
+        input = self.__mean_image_subtraction(input)
 
         # bottom up
         outputFeatures = self.backbone.features(input)  # n * 7 * 7 * 2048
@@ -74,10 +77,11 @@ class SharedConv(nn.Module):
         score = F.sigmoid(score)
 
         geoMap = self.geoMap(g[4])
-        geoMap = F.sigmoid(geoMap)
+        # 出来的是 normalise 到 0 -1 的值是到上下左右的距离，但是图像他都缩放到  512 * 512 了，但是 gt 里是算的绝对数值来的
+        geoMap = F.sigmoid(geoMap) * 512
 
         angleMap = self.angleMap(g[4])
-        angleMap = F.sigmoid(angleMap)
+        angleMap = (F.sigmoid(angleMap) - 0.5) * math.pi / 2
 
         geometry = torch.cat([geoMap, angleMap], dim = -1)
 
@@ -103,12 +107,27 @@ class SharedConv(nn.Module):
         self.backbone.layer2[3].relu.register_forward_hook(forward_hook_conv3)
         self.backbone.layer3[5].relu.register_forward_hook(forward_hook_conv4)
 
+    def __mean_image_subtraction(self, images, means = [123.68, 116.78, 103.94]):
+        '''
+        image normalization
+        :param images: bs * w * h * channel
+        :param means:
+        :return:
+        '''
+        num_channels = images.data.shape[1]
+        if len(means) != num_channels:
+            raise ValueError('len(means) must match the number of channels')
+        for i in range(num_channels):
+            images.data[:, i, :, :] -= means[i]
+
+        return images
 
 
 class DummyLayer(nn.Module):
 
     def forward(self, input_f):
         return input
+
 
 class HLayer(nn.Module):
 
@@ -125,7 +144,6 @@ class HLayer(nn.Module):
 
         self.conv2dTwo = nn.Conv2d(outputChannels, outputChannels, kernel_size = 3)
         self.bnTwo = nn.BatchNorm2d(outputChannels)
-
 
     def forward(self, inputPrevG, inputF):
         input = torch.cat([inputPrevG, inputF], dim = 1)
