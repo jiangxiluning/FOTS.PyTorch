@@ -13,10 +13,9 @@ class SharedConv(nn.Module):
 
     def __init__(self, bbNet):
         super(SharedConv, self).__init__()
-        # self.backbone = pm.__dict__['resnet50'](num_class=1000, pretrained='imagenet') # resnet50 in paper
-        # self.backbone.eval()
-        # self.preprocessTF = utils.TransformImage(self.backbone) # load transformation from model
         self.backbone = bbNet
+        self.backbone.eval()
+
         self.conv2Output = None
         self.conv3Output = None
         self.conv4Output = None
@@ -29,9 +28,9 @@ class SharedConv(nn.Module):
 
         self.mergeLayers1 = HLayer(2048 + 1024, 128)
         self.mergeLayers2 = HLayer(128 + 512, 64)
-        self.mergeLayers3 = HLayer(64 + 32, 32)
+        self.mergeLayers3 = HLayer(64 + 256, 32)
 
-        self.mergeLayers4 = nn.Conv2d(32, 32, kernel_size = 3)
+        self.mergeLayers4 = nn.Conv2d(32, 32, kernel_size = 3, padding = 1)
         self.bn5 = nn.BatchNorm2d(32)
 
         # Output Layer
@@ -46,8 +45,9 @@ class SharedConv(nn.Module):
 
         # bottom up
         outputFeatures = self.backbone.features(input)  # n * 7 * 7 * 2048
-        f1 = self.toplayer(outputFeatures)
-        f = [f1, self.conv4Output, self.conv3Output, self.conv2Output]
+        # f1 = self.toplayer(outputFeatures)
+
+        f = [outputFeatures, self.conv4Output, self.conv3Output, self.conv2Output]
 
         g = [None] * 4
         h = [None] * 4
@@ -69,27 +69,27 @@ class SharedConv(nn.Module):
         g[3] = self.__unpool(h[3])
 
         # final stage
-        g[4] = self.mergeLayers4(h[3])
-        g[4] = self.bn5(g[4])
-        g[4] = F.relu(g[4])
+        final = self.mergeLayers4(h[3])
+        final = self.bn5(final)
+        final = F.relu(final)
 
-        score = self.scoreMap(g[4])
+        score = self.scoreMap(final)
         score = F.sigmoid(score)
 
-        geoMap = self.geoMap(g[4])
+        geoMap = self.geoMap(final)
         # 出来的是 normalise 到 0 -1 的值是到上下左右的距离，但是图像他都缩放到  512 * 512 了，但是 gt 里是算的绝对数值来的
         geoMap = F.sigmoid(geoMap) * 512
 
-        angleMap = self.angleMap(g[4])
+        angleMap = self.angleMap(final)
         angleMap = (F.sigmoid(angleMap) - 0.5) * math.pi / 2
 
-        geometry = torch.cat([geoMap, angleMap], dim = -1)
+        geometry = torch.cat([geoMap, angleMap], dim = 1)
 
         return score, geometry
 
     def __unpool(self, input):
-        _, _, H, W = input.size()
-        return F.upsample_bilinear(input, H * 2, W * 2)
+        _, _, H, W = input.shape
+        return F.interpolate(input, mode = 'bilinear', scale_factor = 2, align_corners = True)
 
     def __register_hooks(self):
 
@@ -126,7 +126,7 @@ class SharedConv(nn.Module):
 class DummyLayer(nn.Module):
 
     def forward(self, input_f):
-        return input
+        return input_f
 
 
 class HLayer(nn.Module):
@@ -142,13 +142,13 @@ class HLayer(nn.Module):
         self.conv2dOne = nn.Conv2d(inputChannels, outputChannels, kernel_size = 1)
         self.bnOne = nn.BatchNorm2d(outputChannels)
 
-        self.conv2dTwo = nn.Conv2d(outputChannels, outputChannels, kernel_size = 3)
+        self.conv2dTwo = nn.Conv2d(outputChannels, outputChannels, kernel_size = 3, padding = 1)
         self.bnTwo = nn.BatchNorm2d(outputChannels)
 
     def forward(self, inputPrevG, inputF):
         input = torch.cat([inputPrevG, inputF], dim = 1)
         output = self.conv2dOne(input)
-        output = self.bnOne(input)
+        output = self.bnOne(output)
         output = F.relu(output)
 
         output = self.conv2dTwo(output)

@@ -21,11 +21,11 @@ class Trainer(BaseTrainer):
         self.valid = True if self.valid_data_loader is not None else False
         self.log_step = int(np.sqrt(self.batch_size))
 
-    def _to_tensor(self, data, target):
-        data, target = torch.FloatTensor(data), torch.LongTensor(target)
-        if self.with_cuda:
-            data, target = data.to(self.gpu), target.to(self.gpu)
-        return data, target
+    def _to_tensor(self, *tensors):
+        t = []
+        for __tensors in tensors:
+            t.append(__tensors.to(self.device))
+        return t
 
     def _eval_metrics(self, output, target):
         acc_metrics = np.zeros(len(self.metrics))
@@ -56,17 +56,20 @@ class Trainer(BaseTrainer):
 
         total_loss = 0
         total_metrics = np.zeros(len(self.metrics))
-        for batch_idx, (data, target) in enumerate(self.data_loader):
-            data, target = self._to_tensor(data, target)
+        for batch_idx, (img, score_map, geo_map, training_mask) in enumerate(self.data_loader):
+            img, score_map, geo_map, training_mask = self._to_tensor(img, score_map, geo_map, training_mask)
 
             self.optimizer.zero_grad()
-            output = self.model(data)
-            loss = self.loss(output, target)
+            pred_score_map, pred_geo_map = self.model(img)
+
+            loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, training_mask)
             loss.backward()
             self.optimizer.step()
 
             total_loss += loss.item()
-            total_metrics += self._eval_metrics(output, target)
+            #total_metrics += self._eval_metrics(output, target)
+
+            total_metrics += 0
 
             if self.verbosity >= 2 and batch_idx % self.log_step == 0:
                 self.logger.info('Train Epoch: {} [{}/{} ({:.0f}%)] Loss: {:.6f}'.format(

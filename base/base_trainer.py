@@ -21,13 +21,18 @@ class BaseTrainer:
         self.epochs = config['trainer']['epochs']
         self.save_freq = config['trainer']['save_freq']
         self.verbosity = config['trainer']['verbosity']
+
+
         self.with_cuda = config['cuda'] and torch.cuda.is_available()
         if config['cuda'] and not torch.cuda.is_available():
             self.logger.warning('Warning: There\'s no CUDA support on this machine, '
                                 'training is performed on CPU.')
+            device = 'cpu'
         else:
-            self.gpu = torch.device('cuda:' + str(config['gpu']))
-            self.model = self.model.to(self.gpu)
+            device = 'cuda:' + str(config['gpu'])
+
+        self.device = torch.device(device)
+        self.model = self.model.to(self.device)
 
         self.train_logger = train_logger
         self.optimizer = getattr(optim, config['optimizer_type'])(model.parameters(),

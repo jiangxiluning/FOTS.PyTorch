@@ -2,6 +2,8 @@ import argparse
 import json
 import logging
 import os
+import math
+import pathlib
 
 import torch
 
@@ -11,21 +13,60 @@ from model.loss import *
 from model.metric import *
 from model.model import *
 from trainer import Trainer
+from torch.utils.data import DataLoader
+from torch.utils.data import random_split
+
+
+from data_loader.dataset import MyDataset
+from data_loader.datautils import collate_fn
 
 logging.basicConfig(level=logging.INFO, format='')
+
+
+DATA_ROOT = pathlib.Path('/Users/luning/Dev/data/icdar2015/train')
+
+def train_val_split(dataset, ratio: str='8:2'):
+    '''
+
+    :param ratio: train v.s. val etc. 8:2
+    :param dataset:
+    :return:
+    '''
+
+    try:
+        train_part, val_part = ratio.split(':')
+        train_part, val_part = int(train_part), int(val_part)
+    except:
+        print('ratio is illegal.')
+        train_part, val_part = 8, 2
+
+    train_len =  math.floor(len(dataset) * (train_part / (train_part + val_part)))
+    val_len = len(dataset) - train_len
+
+    train, val = random_split(dataset, [train_len, val_len])
+    return train, val
+
 
 
 def main(config, resume):
     train_logger = Logger()
 
-    data_loader = MnistDataLoader(config)
-    valid_data_loader = data_loader.split_validation()
+    custom_dataset = MyDataset(DATA_ROOT / 'ch4_training_images',
+                               DATA_ROOT / 'ch4_training_localization_transcription_gt')
+
+    train_dataset, val_dataset = train_val_split(custom_dataset)
+
+    # data_loader = MnistDataLoader(config)
+    # valid_data_loader = data_loader.split_validation()
+    data_loader = DataLoader(train_dataset, collate_fn = collate_fn, batch_size = 32, shuffle = True)
+    valid_data_loader = DataLoader(val_dataset, collate_fn = collate_fn, batch_size = 32, shuffle = True)
 
     model = eval(config['arch'])(config['model'])
     model.summary()
 
-    loss = eval(config['loss'])
+    loss = eval(config['loss'])()
     metrics = [eval(metric) for metric in config['metrics']]
+
 
     trainer = Trainer(model, loss, metrics,
                       resume=resume,

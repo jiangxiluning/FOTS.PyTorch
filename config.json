@@ -1,5 +1,5 @@
 {
-    "name": "Mnist_LeNet",
+    "name": "FOTS",
     "cuda": true,
     "gpu": 0,
     "data_loader": {
@@ -18,12 +18,12 @@
             "gamma": 0.8685113737513527
     },
  
-    "optimizer_type": "Adam",
+    "optimizer_type": "SGD",
     "optimizer": {
         "lr": 0.001,
         "weight_decay": 0
     },
-    "loss": "my_loss",
+    "loss": "LossFunc",
     "metrics": ["my_metric", "my_metric2"],
     "trainer": {
         "epochs": 1000,
@@ -33,7 +33,7 @@
         "monitor": "val_loss",
         "monitor_mode": "min"
     },
-    "arch": "MnistModel", 
+    "arch": "FOTSModel",
     "model": {
 
     }
