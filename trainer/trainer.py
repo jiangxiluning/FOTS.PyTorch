@@ -27,7 +27,7 @@ class Trainer(BaseTrainer):
             t.append(__tensors.to(self.device))
         return t
 
-    def _eval_metrics(self, output, target):
+    def _eval_metrics(self, output, target, mask):
         acc_metrics = np.zeros(len(self.metrics))
         output = output.cpu().data.numpy()
         target = target.cpu().data.numpy()
@@ -58,11 +58,12 @@ class Trainer(BaseTrainer):
         total_metrics = np.zeros(len(self.metrics))
         for batch_idx, (img, score_map, geo_map, training_mask) in enumerate(self.data_loader):
             img, score_map, geo_map, training_mask = self._to_tensor(img, score_map, geo_map, training_mask)
+            recog_map = None
 
             self.optimizer.zero_grad()
-            pred_score_map, pred_geo_map = self.model(img)
+            pred_score_map, pred_geo_map, pred_recog_map = self.model(img)
 
-            loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, training_mask)
+            loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, pred_recog_map, recog_map, training_mask)
             loss.backward()
             self.optimizer.step()
 
@@ -103,14 +104,21 @@ class Trainer(BaseTrainer):
         total_val_loss = 0
         total_val_metrics = np.zeros(len(self.metrics))
         with torch.no_grad():
-            for batch_idx, (data, target) in enumerate(self.valid_data_loader):
-                data, target = self._to_tensor(data, target)
+            for batch_idx, (img, score_map, geo_map, training_mask) in enumerate(self.data_loader):
+                img, score_map, geo_map, training_mask = self._to_tensor(img, score_map, geo_map, training_mask)
+                recog_map = None
 
-                output = self.model(data)
-                loss = self.loss(output, target)
+                pred_score_map, pred_geo_map, pred_recog_map = self.model(img)
+
+                loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, pred_recog_map, recog_map,
+                                 training_mask)
+
 
                 total_val_loss += loss.item()
-                total_val_metrics += self._eval_metrics(output, target)
+
+                output = (pred_score_map, pred_geo_map, pred_recog_map)
+                target = (score_map, geo_map, recog_map)
+                total_val_metrics += self._eval_metrics(output, target, training_mask)
 
         return {
             'val_loss': total_val_loss / len(self.valid_data_loader),

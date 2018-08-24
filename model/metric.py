@@ -17,3 +17,12 @@ def my_metric2(y_input, y_target):
         if np.array_equal(y0, y1):
             correct += 1
     return correct / len(y_input) * 2
+
+
+
+def detection_metric(output, target, mask):
+    pass
+
+
+def recognition_metric(output, target, mask):
+    pass

@@ -74,14 +74,14 @@ class SharedConv(nn.Module):
         final = F.relu(final)
 
         score = self.scoreMap(final)
-        score = F.sigmoid(score)
+        score = torch.sigmoid(score)
 
         geoMap = self.geoMap(final)
         # 出来的是 normalise 到 0 -1 的值是到上下左右的距离，但是图像他都缩放到  512 * 512 了，但是 gt 里是算的绝对数值来的
-        geoMap = F.sigmoid(geoMap) * 512
+        geoMap = torch.sigmoid(geoMap) * 512
 
         angleMap = self.angleMap(final)
-        angleMap = (F.sigmoid(angleMap) - 0.5) * math.pi / 2
+        angleMap = (torch.sigmoid(angleMap) - 0.5) * math.pi / 2
 
         geometry = torch.cat([geoMap, angleMap], dim = 1)
 
