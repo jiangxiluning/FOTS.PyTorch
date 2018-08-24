@@ -1,57 +1,17 @@
 ### 此处默认真实值和预测值的格式均为 bs * W * H * channels
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 
-def loss(lambda_reg, lambda_recog):
-    return detection_loss(lambda_reg) + lambda_recog * recognition_loss()
-
-
-def detection_loss(lambda_reg):
-    return cls_of_detection_loss() + lambda_reg * reg_of_detection_loss()
-
-def my_loss(y_input, y_target):
-    return F.nll_loss(y_input, y_target)
-
-def recognition_loss():
-    pass
-
-
-def cls_of_detection_loss(y_pred, y_label, pixels_mask):
-    return F.cross_entropy(y_pred * pixels_mask, y_label * pixels_mask)
-
-
-def reg_of_detection_loss():
-    pass
-
-
-def dice_coefficient(y_true_cls, y_pred_cls,
-                     training_mask):
-    '''
-    dice loss
-    :param y_true_cls:
-    :param y_pred_cls:
-    :param training_mask:
-    :return:
-    '''
-    eps = 1e-5
-    intersection = torch.sum(y_true_cls * y_pred_cls * training_mask)
-    union = torch.sum(y_true_cls * training_mask) + torch.sum(y_pred_cls * training_mask) + eps
-    loss = 1. - (2 * intersection / union)
-
-    return loss
-
-
-class LossFunc(nn.Module):
+class DetectionLoss(nn.Module):
     def __init__(self):
-        super(LossFunc, self).__init__()
+        super(DetectionLoss, self).__init__()
         return
 
     def forward(self, y_true_cls, y_pred_cls,
                 y_true_geo, y_pred_geo,
                 training_mask):
-        classification_loss = dice_coefficient(y_true_cls, y_pred_cls, training_mask)
+        classification_loss = self.__dice_coefficient(y_true_cls, y_pred_cls, training_mask)
         # scale classification loss to match the iou loss part
         classification_loss *= 0.01
 
@@ -71,3 +31,50 @@ class LossFunc(nn.Module):
         L_g = L_AABB + 20 * L_theta
 
         return torch.mean(L_g * y_true_cls * training_mask) + classification_loss
+
+    def __dice_coefficient(self, y_true_cls, y_pred_cls,
+                         training_mask):
+        '''
+        dice loss
+        :param y_true_cls:
+        :param y_pred_cls:
+        :param training_mask:
+        :return:
+        '''
+        eps = 1e-5
+        intersection = torch.sum(y_true_cls * y_pred_cls * training_mask)
+        union = torch.sum(y_true_cls * training_mask) + torch.sum(y_pred_cls * training_mask) + eps
+        loss = 1. - (2 * intersection / union)
+
+        return loss
+
+
+class RecognitionLoss(nn.Module):
+
+    def __init__(self):
+        super(RecognitionLoss, self).__init__()
+
+    def forward(self, *input):
+        return 0
+
+
+class FOTSLoss(nn.Module):
+
+    def __init__(self, config):
+        super(FOTSLoss, self).__init__()
+        self.mode = config['mode']
+        self.detectionLoss = DetectionLoss()
+        self.recogitionLoss = RecognitionLoss()
+
+    def forward(self, y_true_cls, y_pred_cls,
+                y_true_geo, y_pred_geo,
+                y_true_recog, y_pred_recog,
+                training_mask):
+
+        detection_loss = DetectionLoss(y_true_cls, y_pred_cls,
+                                       y_true_geo, y_pred_geo, training_mask)
+        if self.mode == 'recognition':
+            recognition_loss = RecognitionLoss(y_true_recog, y_true_recog, training_mask)
+            return detection_loss + recognition_loss
+        elif self.mode == 'detection':
+            return detection_loss

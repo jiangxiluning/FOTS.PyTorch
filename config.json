@@ -23,7 +23,7 @@
         "lr": 0.001,
         "weight_decay": 0
     },
-    "loss": "LossFunc",
+    "loss": "FOTSLoss",
     "metrics": ["my_metric", "my_metric2"],
     "trainer": {
         "epochs": 1000,
@@ -35,6 +35,6 @@
     },
     "arch": "FOTSModel",
     "model": {
-
+        "mode": "detection"
     }
 }

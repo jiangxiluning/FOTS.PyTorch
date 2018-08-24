@@ -64,7 +64,7 @@ def main(config, resume):
     model = eval(config['arch'])(config['model'])
     model.summary()
 
-    loss = eval(config['loss'])()
+    loss = eval(config['loss'])(config['model'])
     metrics = [eval(metric) for metric in config['metrics']]
 
 
