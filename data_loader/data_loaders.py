@@ -1,7 +1,8 @@
-import torch
+import torch.utils.data as torchdata
 import numpy as np
 from torchvision import datasets, transforms
 from base import BaseDataLoader
+from .dataset import SynthTextDataset
 
 
 class MnistDataLoader(BaseDataLoader):
@@ -11,7 +12,7 @@ class MnistDataLoader(BaseDataLoader):
     def __init__(self, config):
         super(MnistDataLoader, self).__init__(config)
         self.data_dir = config['data_loader']['data_dir']
-        self.data_loader = torch.utils.data.DataLoader(
+        self.data_loader = torchdata.DataLoader(
             datasets.MNIST('../data', train=True, download=True,
                            transform=transforms.Compose([
                                transforms.ToTensor(),
@@ -44,3 +45,21 @@ class MnistDataLoader(BaseDataLoader):
 
     def _n_samples(self):
         return len(self.x)
+
+
+class SynthTextDataLoader(BaseDataLoader):
+
+    def __init__(self, config):
+        super(SynthTextDataLoader, self).__init__()
+        self.config = config
+        dataRoot = self.config['data_dir']
+        batchSize = self.config['batch_size']
+        shuffle = self.config['shuffle']
+        ds = SynthTextDataset(dataRoot)
+        self.data_loader = torchdata.DataLoader(ds, batch_size = batchSize, shuffle = shuffle,
+                                                transforms = transforms.Compose([]))
+
+    def __next__(self):
+        pass
+
+
