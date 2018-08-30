@@ -8,6 +8,7 @@ import pathlib
 from shapely.geometry import Polygon
 
 
+
 def get_images(root):
     '''
     get images's path and name
@@ -583,7 +584,7 @@ def image_label(txt_root, image_list, img_name, index,
         # if not os.path.exists(txt_fn):
         #     pass
 
-        text_polys, text_tags = load_annoataion(txt_fn)
+        text_polys, text_tags = load_annoataion(txt_fn) # text_polys: n * 4 * 2
         text_polys, text_tags = check_and_validate_polys(text_polys, text_tags, (h, w))
         # if text_polys.shape[0] == 0:
         #     continue
@@ -634,6 +635,7 @@ def image_label(txt_root, image_list, img_name, index,
             new_h, new_w, _ = im.shape
             score_map, geo_map, training_mask = generate_rbox((new_h, new_w), text_polys, text_tags)
 
+        # predict 出来的feature map 是 128 * 128， 所以 gt 需要取 /4 步长
         images = im[:, :, ::-1].astype(np.float32)
         score_maps = score_map[::4, ::4, np.newaxis].astype(np.float32)
         geo_maps = geo_map[::4, ::4, :].astype(np.float32)
@@ -672,6 +674,11 @@ def collate_fn(batch):
     training_masks = torch.stack(training_masks, 0)
 
     return images, score_maps, geo_maps, training_masks
+
+
+
+
+
 ## img = bs * 512 * 512 *3
 ## score_map = bs* 128 * 128 * 1
 ## geo_map = bs * 128 * 128 * 5

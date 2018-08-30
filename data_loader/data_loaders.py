@@ -1,6 +1,8 @@
-import torch.utils.data as torchdata
 import numpy as np
+import torch
+import torch.utils.data as torchdata
 from torchvision import datasets, transforms
+
 from base import BaseDataLoader
 from .dataset import SynthTextDataset
 
@@ -56,10 +58,49 @@ class SynthTextDataLoader(BaseDataLoader):
         batchSize = self.config['batch_size']
         shuffle = self.config['shuffle']
         ds = SynthTextDataset(dataRoot)
+        self.length = len(ds)
         self.data_loader = torchdata.DataLoader(ds, batch_size = batchSize, shuffle = shuffle,
-                                                transforms = transforms.Compose([]))
+                                                collate_fn = self.__collate_fn)
+        self.__images = []
+        self.__scroeMap = []
+        self.__geoMap = []
+        self.__transcripts = []
 
     def __next__(self):
         pass
+
+    def _n_samples(self):
+        return self.length
+
+    def __collate_fn(self, batch):
+        img, score_map, geo_map, training_mask, transcript = zip(*batch)
+        bs = len(score_map)
+        images = []
+        score_maps = []
+        geo_maps = []
+        training_masks = []
+        transcripts = []
+        for i in range(bs):
+            if img[i] is not None:
+                a = torch.from_numpy(img[i])
+                a = a.permute(2, 0, 1)
+                images.append(a)
+                b = torch.from_numpy(score_map[i])
+                b = b.permute(2, 0, 1)
+                score_maps.append(b)
+                c = torch.from_numpy(geo_map[i])
+                c = c.permute(2, 0, 1)
+                geo_maps.append(c)
+                d = torch.from_numpy(training_mask[i])
+                d = d.permute(2, 0, 1)
+                training_masks.append(d)
+
+        images = torch.stack(images, 0)
+        score_maps = torch.stack(score_maps, 0)
+        geo_maps = torch.stack(geo_maps, 0)
+        training_masks = torch.stack(training_masks, 0)
+        # TODO: need to implement the transformation for transcript as we need to compute ctc loss
+
+        return images, score_maps, geo_maps, training_masks, transcripts
 
 
