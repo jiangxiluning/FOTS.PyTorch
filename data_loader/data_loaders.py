@@ -49,30 +49,47 @@ class MnistDataLoader(BaseDataLoader):
         return len(self.x)
 
 
-class SynthTextDataLoader(BaseDataLoader):
+class SynthTextDataLoaderFactory(BaseDataLoader):
 
     def __init__(self, config):
-        super(SynthTextDataLoader, self).__init__()
-        self.config = config
-        dataRoot = self.config['data_dir']
-        batchSize = self.config['batch_size']
-        shuffle = self.config['shuffle']
+        super(SynthTextDataLoaderFactory, self).__init__(config)
+        dataRoot = self.config['data_loader']['data_dir']
         ds = SynthTextDataset(dataRoot)
-        self.length = len(ds)
-        self.data_loader = torchdata.DataLoader(ds, batch_size = batchSize, shuffle = shuffle,
-                                                collate_fn = self.__collate_fn)
-        self.__images = []
-        self.__scroeMap = []
-        self.__geoMap = []
-        self.__transcripts = []
 
-    def __next__(self):
-        pass
+        self.__trainDataset, self.__valDataset = self.__train_val_split(ds)
 
-    def _n_samples(self):
-        return self.length
+    def train(self):
+        trainLoader = torchdata.DataLoader(self.__trainDataset, batch_size = self.batch_size, shuffle = self.shuffle,
+                                            collate_fn = SynthTextDataLoaderFactory.collate_fn)
+        return trainLoader
 
-    def __collate_fn(self, batch):
+    def val(self):
+        shuffle = self.config['validation']['shuffle']
+        valLoader = torchdata.DataLoader(self.__trainDataset, batch_size = self.batch_size,
+                                         shuffle = shuffle, collate_fn = SynthTextDataLoaderFactory.collate_fn)
+        return valLoader
+
+    def __train_val_split(self, ds):
+        '''
+
+        :param ds: dataset
+        :return:
+        '''
+        split = self.config['validation']['validation_split']
+
+        try:
+            split = float(split)
+        except:
+            raise RuntimeError('Train and val splitting ratio is invalid.')
+
+        val_len = int(split * len(ds))
+        train_len = len(ds) - val_len
+        train, val = torchdata.random_split(ds, [train_len, val_len])
+        return train, val
+
+
+    @staticmethod
+    def collate_fn(batch):
         img, score_map, geo_map, training_mask, transcript = zip(*batch)
         bs = len(score_map)
         images = []
@@ -103,4 +120,6 @@ class SynthTextDataLoader(BaseDataLoader):
 
         return images, score_maps, geo_maps, training_masks, transcripts
 
+    def split_validation(self):
+        raise NotImplementedError
 

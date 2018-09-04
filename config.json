@@ -3,7 +3,7 @@
     "cuda": true,
     "gpu": 0,
     "data_loader": {
-        "data_dir": "datasets/",
+        "data_dir": "/Users/luning/Dev/data/SynthText/SynthText",
         "batch_size": 32,
         "shuffle": true
     },

@@ -1,29 +1,24 @@
 import argparse
 import json
 import logging
-import os
 import math
+import os
 import pathlib
 
-import torch
-
-from data_loader import MnistDataLoader
-from logger import Logger
-from model.loss import *
-from model.metric import *
-from model.model import *
-from trainer import Trainer
-from torch.utils.data import DataLoader
 from torch.utils.data import random_split
 
-
-from data_loader.dataset import MyDataset
-from data_loader.datautils import collate_fn
+from data_loader import SynthTextDataLoaderFactory
+from logger import Logger
+from model.loss import *
+from model.model import *
+from model.metric import *
+from trainer import Trainer
 
 logging.basicConfig(level=logging.INFO, format='')
 
 
-DATA_ROOT = pathlib.Path('/Users/luning/Dev/data/icdar2015/train')
+ICDAR2015_DATA_ROOT = pathlib.Path('/Users/luning/Dev/data/icdar2015/train')
+
 
 def train_val_split(dataset, ratio: str='8:2'):
     '''
@@ -47,19 +42,21 @@ def train_val_split(dataset, ratio: str='8:2'):
     return train, val
 
 
-
 def main(config, resume):
     train_logger = Logger()
 
-    custom_dataset = MyDataset(DATA_ROOT / 'ch4_training_images',
-                               DATA_ROOT / 'ch4_training_localization_transcription_gt')
+    # Synth800K
+    data_loader = SynthTextDataLoaderFactory(config)
+    train = data_loader.train()
+    val = data_loader.val()
 
-    train_dataset, val_dataset = train_val_split(custom_dataset)
-
-    # data_loader = MnistDataLoader(config)
-    # valid_data_loader = data_loader.split_validation()
-    data_loader = DataLoader(train_dataset, collate_fn = collate_fn, batch_size = 32, shuffle = True)
-    valid_data_loader = DataLoader(val_dataset, collate_fn = collate_fn, batch_size = 32, shuffle = True)
+    # icdar 2015
+    # custom_dataset = MyDataset(DATA_ROOT / 'ch4_training_images',
+    #                            DATA_ROOT / 'ch4_training_localization_transcription_gt')
+    #
+    # train_dataset, val_dataset = train_val_split(custom_dataset)
+    # data_loader = DataLoader(train_dataset, collate_fn = collate_fn, batch_size = 32, shuffle = True)
+    # valid_data_loader = DataLoader(val_dataset, collate_fn = collate_fn, batch_size = 32, shuffle = True)
 
     model = eval(config['arch'])(config['model'])
     model.summary()
@@ -67,12 +64,11 @@ def main(config, resume):
     loss = eval(config['loss'])(config['model'])
     metrics = [eval(metric) for metric in config['metrics']]
 
-
     trainer = Trainer(model, loss, metrics,
                       resume=resume,
                       config=config,
-                      data_loader=data_loader,
-                      valid_data_loader=valid_data_loader,
+                      data_loader=train,
+                      valid_data_loader=val,
                       train_logger=train_logger)
 
     trainer.train()

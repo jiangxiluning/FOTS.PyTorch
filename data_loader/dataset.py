@@ -33,7 +33,7 @@ class SynthTextDataset(Dataset):
             raise FileExistsError('Target file is not exist.')
         targets = {}
         sio.loadmat(self.targetFilePath, targets, squeeze_me=True, struct_as_record=False,
-                    variable_name=['imnames', 'wordBB', 'txt'])
+                    variable_names=['imnames', 'wordBB', 'txt'])
 
         self.imageNames = targets['imnames']
         self.wordBBoxes = targets['wordBB']
@@ -67,7 +67,7 @@ class SynthTextDataset(Dataset):
         '''
 
         imagePath, wordBBoxes, transcripts = gt
-        im = cv2.imread(imagePath)
+        im = cv2.imread((self.dataRoot / imagePath).as_posix())
         _, _, numOfWords = wordBBoxes.shape
         text_polys = wordBBoxes.reshape([8, numOfWords], order = 'F').T  # num_words * 8
         text_polys = text_polys.reshape(numOfWords, 4, 2)  # num_of_words * 4 * 2
