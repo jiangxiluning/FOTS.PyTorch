@@ -52,7 +52,12 @@ class SynthTextDataset(Dataset):
         wordBBoxes = self.wordBBoxes[index] # 2 * 4 * num_words
         transcripts = self.transcripts[index]
 
-        return self.__transform((imageName, wordBBoxes, transcripts))
+        data = self.__transform((imageName, wordBBoxes, transcripts))
+
+        if data is None:
+            return self.__getitem__(np.random.randint(0, len(self)))
+        else:
+            return data
 
     def __len__(self):
         return len(self.imageNames)
@@ -68,6 +73,7 @@ class SynthTextDataset(Dataset):
 
         imagePath, wordBBoxes, transcripts = gt
         im = cv2.imread((self.dataRoot / imagePath).as_posix())
+        wordBBoxes = np.expand_dims(wordBBoxes, axis = 2) if (wordBBoxes.ndim == 2) else wordBBoxes
         _, _, numOfWords = wordBBoxes.shape
         text_polys = wordBBoxes.reshape([8, numOfWords], order = 'F').T  # num_words * 8
         text_polys = text_polys.reshape(numOfWords, 4, 2)  # num_of_words * 4 * 2
@@ -131,4 +137,6 @@ class SynthTextDataset(Dataset):
             geo_maps = geo_map[::4, ::4, :].astype(np.float32)
             training_masks = training_mask[::4, ::4, np.newaxis].astype(np.float32)
 
-            yield images, score_maps, geo_maps, training_masks, transcripts
+            return images, score_maps, geo_maps, training_masks, transcripts
+
+            #return images, score_maps, geo_maps, training_masks
