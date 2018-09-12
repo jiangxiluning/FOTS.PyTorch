@@ -22,17 +22,25 @@ class BaseTrainer:
         self.save_freq = config['trainer']['save_freq']
         self.verbosity = config['trainer']['verbosity']
 
-
         self.with_cuda = config['cuda'] and torch.cuda.is_available()
         if config['cuda'] and not torch.cuda.is_available():
             self.logger.warning('Warning: There\'s no CUDA support on this machine, '
                                 'training is performed on CPU.')
             device = 'cpu'
         else:
-            device = 'cuda:' + str(config['gpu'])
+            if len(config['gpus']) == 1:
+                device = 'cuda:' + str(config['gpus'][0])
+            elif torch.cuda.device_count() > 1:
+                device = 'cuda'
+                self.model = torch.nn.DataParallel(self.model)
+                torch.cuda.empty_cache()
 
         self.device = torch.device(device)
         self.model = self.model.to(self.device)
+
+        self.logger.debug('Model is initialized.')
+        self._log_memory_useage()
+
 
         self.train_logger = train_logger
         self.optimizer = getattr(optim, config['optimizer_type'])(model.parameters(),
@@ -60,7 +68,11 @@ class BaseTrainer:
         Full training logic
         """
         for epoch in range(self.start_epoch, self.epochs + 1):
-            result = self._train_epoch(epoch)
+            try:
+                result = self._train_epoch(epoch)
+            except torch.cuda.CudaError:
+                self._log_memory_useage()
+
             log = {'epoch': epoch}
             for key, value in result.items():
                 if key == 'metrics':
@@ -86,6 +98,24 @@ class BaseTrainer:
                 self.lr_scheduler.step(epoch)
                 lr = self.lr_scheduler.get_lr()[0]
                 self.logger.info('New Learning Rate: {:.6f}'.format(lr))
+
+    def _log_memory_useage(self):
+        if not self.with_cuda: pass
+
+        gpus = self.config['gpus']
+        template = """Memory Usage: \n{}"""
+        usage = []
+        for deviceID in gpus:
+            deviceID = int(deviceID)
+            allocated = torch.cuda.memory_allocated(deviceID) / (1024 * 1024)
+            cached = torch.cuda.memory_cached(deviceID) / (1024 * 1024)
+
+            usage.append('    CUDA: {}  Allocated: {} MB Cached: {} MB \n'.format(deviceID, allocated, cached))
+
+        content = ''.join(usage)
+        content = template.format(content)
+
+        self.logger.debug(content)
 
     def _train_epoch(self, epoch):
         """

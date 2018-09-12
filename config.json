@@ -1,7 +1,7 @@
 {
     "name": "FOTS",
     "cuda": true,
-    "gpu": 0,
+    "gpus": [0, 1, 2, 3],
     "data_loader": {
         "data_dir": "/Users/luning/Dev/data/SynthText/SynthText",
         "batch_size": 32,

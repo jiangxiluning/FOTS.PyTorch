@@ -14,7 +14,7 @@ from model.model import *
 from model.metric import *
 from trainer import Trainer
 
-logging.basicConfig(level=logging.INFO, format='')
+logging.basicConfig(level=logging.DEBUG, format='')
 
 
 ICDAR2015_DATA_ROOT = pathlib.Path('/Users/luning/Dev/data/icdar2015/train')
@@ -57,7 +57,7 @@ def main(config, resume):
     # train_dataset, val_dataset = train_val_split(custom_dataset)
     # data_loader = DataLoader(train_dataset, collate_fn = collate_fn, batch_size = 32, shuffle = True)
     # valid_data_loader = DataLoader(val_dataset, collate_fn = collate_fn, batch_size = 32, shuffle = True)
-
+    os.environ['CUDA_VISIBLE_DEVICES'] = ','.join([str(i) for i in config['gpus']])
     model = eval(config['arch'])(config['model'])
     model.summary()
 
