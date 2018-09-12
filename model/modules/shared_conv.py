@@ -90,7 +90,7 @@ class SharedConv(nn.Module):
         conv4 = None
         output = None # n * 7 * 7 * 2048
 
-        for name, layer in self.backbone.named_modules():
+        for name, layer in self.backbone.named_children():
             input = layer(input)
             if name == 'layer1':
                 conv2 = input
