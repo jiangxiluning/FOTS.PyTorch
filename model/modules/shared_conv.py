@@ -11,7 +11,7 @@ class SharedConv(nn.Module):
     sharded convolutional layers
     '''
 
-    def __init__(self, bbNet):
+    def __init__(self, bbNet: nn.Module):
         super(SharedConv, self).__init__()
         self.backbone = bbNet
         self.backbone.eval()
@@ -44,10 +44,7 @@ class SharedConv(nn.Module):
         input = self.__mean_image_subtraction(input)
 
         # bottom up
-        outputFeatures = self.backbone.features(input)  # n * 7 * 7 * 2048
-        # f1 = self.toplayer(outputFeatures)
-
-        f = [outputFeatures, self.conv4Output, self.conv3Output, self.conv2Output]
+        f = self.__foward_backbone(input)
 
         g = [None] * 4
         h = [None] * 4
@@ -86,6 +83,25 @@ class SharedConv(nn.Module):
         geometry = torch.cat([geoMap, angleMap], dim = 1)
 
         return score, geometry
+
+    def __foward_backbone(self, input):
+        conv2 = None
+        conv3 = None
+        conv4 = None
+        output = None # n * 7 * 7 * 2048
+
+        for name, layer in self.backbone.named_modules():
+            input = layer(input)
+            if name == 'layer1':
+                conv2 = input
+            elif name == 'layer2':
+                conv3 = input
+            elif name == 'layer3':
+                conv4 = input
+            elif name == 'avgpool':
+                output = input
+
+        return output, conv4, conv3, conv2
 
     def __unpool(self, input):
         _, _, H, W = input.shape
