@@ -98,8 +98,9 @@ class SharedConv(nn.Module):
                 conv3 = input
             elif name == 'layer3':
                 conv4 = input
-            elif name == 'avgpool':
+            elif name == 'layer4':
                 output = input
+                break
 
         return output, conv4, conv3, conv2
 
