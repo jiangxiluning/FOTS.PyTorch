@@ -16,11 +16,6 @@ class SharedConv(nn.Module):
         self.backbone = bbNet
         self.backbone.eval()
 
-        self.conv2Output = None
-        self.conv3Output = None
-        self.conv4Output = None
-        self.__register_hooks()
-
         # Feature-merging branch
         self.toplayer = nn.Conv2d(2048, 256, kernel_size = 1, stride = 1, padding = 0)  # Reduce channels
 
@@ -107,22 +102,6 @@ class SharedConv(nn.Module):
     def __unpool(self, input):
         _, _, H, W = input.shape
         return F.interpolate(input, mode = 'bilinear', scale_factor = 2, align_corners = True)
-
-    def __register_hooks(self):
-
-        def forward_hook_conv2(module, input, output):
-            self.conv2Output = output
-
-        def forward_hook_conv3(module, input, output):
-            self.conv3Output = output
-
-        def forward_hook_conv4(module, input, output):
-            self.conv4Output = output
-
-        # get intermediate output of pretrained model
-        self.backbone.layer1[2].relu.register_forward_hook(forward_hook_conv2)
-        self.backbone.layer2[3].relu.register_forward_hook(forward_hook_conv3)
-        self.backbone.layer3[5].relu.register_forward_hook(forward_hook_conv4)
 
     def __mean_image_subtraction(self, images, means = [123.68, 116.78, 103.94]):
         '''

@@ -5,7 +5,8 @@
     "data_loader": {
         "data_dir": "/Users/luning/Dev/data/SynthText/SynthText",
         "batch_size": 32,
-        "shuffle": true
+        "shuffle": true,
+        "workers": 4
     },
     "validation": {
         "validation_split": 0.1,

@@ -54,18 +54,19 @@ class SynthTextDataLoaderFactory(BaseDataLoader):
     def __init__(self, config):
         super(SynthTextDataLoaderFactory, self).__init__(config)
         dataRoot = self.config['data_loader']['data_dir']
+        self.workers = self.config['data_loader']['workers']
         ds = SynthTextDataset(dataRoot)
 
         self.__trainDataset, self.__valDataset = self.__train_val_split(ds)
 
     def train(self):
-        trainLoader = torchdata.DataLoader(self.__trainDataset, batch_size = self.batch_size, shuffle = self.shuffle,
-                                            collate_fn = SynthTextDataLoaderFactory.collate_fn)
+        trainLoader = torchdata.DataLoader(self.__trainDataset, num_workers = self.num_workers, batch_size = self.batch_size,
+                                           shuffle = self.shuffle, collate_fn = SynthTextDataLoaderFactory.collate_fn)
         return trainLoader
 
     def val(self):
         shuffle = self.config['validation']['shuffle']
-        valLoader = torchdata.DataLoader(self.__trainDataset, batch_size = self.batch_size,
+        valLoader = torchdata.DataLoader(self.__trainDataset, num_workers = self.num_workers, batch_size = self.batch_size,
                                          shuffle = shuffle, collate_fn = SynthTextDataLoaderFactory.collate_fn)
         return valLoader
 
