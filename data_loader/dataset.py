@@ -54,10 +54,13 @@ class SynthTextDataset(Dataset):
 
         data = self.__transform((imageName, wordBBoxes, transcripts))
 
-        if data is None:
+        try:
+            if data is None:
+                return self.__getitem__(np.random.randint(0, len(self)))
+            else:
+                return data
+        except:
             return self.__getitem__(np.random.randint(0, len(self)))
-        else:
-            return data
 
     def __len__(self):
         return len(self.imageNames)
