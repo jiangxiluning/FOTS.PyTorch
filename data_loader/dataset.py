@@ -20,6 +20,50 @@ class MyDataset(Dataset):
         return len(self.image_list)
 
 
+class ICDAR(Dataset):
+
+    structure = {
+        '2015': {
+            'training': {
+                'images': 'ch4_training_images',
+                'gt':'ch4_training_localization_transcription_gt',
+                'voc_per_image': 'ch4_training_vocabularies_per_image',
+                'voc_all': 'ch4_training_vocabulary.txt'
+            },
+            'test': {
+                'images': 'ch4_test_images',
+                'gt': 'Challenge4_Test_Task4_GT',
+                'voc_per_image': 'ch4_test_vocabularies_per_image',
+                'voc_all': 'ch4_test_vocabulary.txt'
+            },
+            'voc_generic': 'GenericVocabulary.txt'
+        },
+        '2013': {
+            'training': {
+                'images': 'ch2_training_images',
+                'gt': 'ch2_training_localization_transcription_gt',
+                'voc_per_image': 'ch2_training_vocabularies_per_image',
+                'voc_all': 'ch2_training_vocabulary.txt'
+            },
+            'test': {
+                'images': 'Challenge2_Test_Task12_Images',
+                'voc_per_image': 'ch2_test_vocabularies_per_image',
+                'voc_all': 'ch4_test_vocabulary.txt'
+            },
+            'voc_generic': 'GenericVocabulary.txt'
+        },
+
+    }
+
+    def __init__(self, data_root, year='2013'):
+
+        self.structure = ICDAR.structure[year]
+        pass
+
+class ICDARDatasetFactory(Dataset):
+
+    def __init__(self, year='2013'):
+        pass
 
 class SynthTextDataset(Dataset):
 
