@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from base import BaseTrainer
-
+from utils.bbox import Toolbox
 
 class Trainer(BaseTrainer):
     """
@@ -12,7 +12,7 @@ class Trainer(BaseTrainer):
         self.optimizer is by default handled by BaseTrainer based on config.
     """
     def __init__(self, model, loss, metrics, resume, config,
-                 data_loader, valid_data_loader=None, train_logger=None):
+                 data_loader, toolbox: Toolbox, valid_data_loader=None, train_logger=None):
         super(Trainer, self).__init__(model, loss, metrics, resume, config, train_logger)
         self.config = config
         self.batch_size = data_loader.batch_size
@@ -20,6 +20,7 @@ class Trainer(BaseTrainer):
         self.valid_data_loader = valid_data_loader
         self.valid = True if self.valid_data_loader is not None else False
         self.log_step = int(np.sqrt(self.batch_size))
+        self.toolbox = toolbox
 
     def _to_tensor(self, *tensors):
         t = []

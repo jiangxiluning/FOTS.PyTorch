@@ -13,6 +13,7 @@ from model.loss import *
 from model.model import *
 from model.metric import *
 from trainer import Trainer
+from utils.bbox import Toolbox
 
 logging.basicConfig(level=logging.DEBUG, format='')
 
@@ -69,7 +70,8 @@ def main(config, resume):
                       config=config,
                       data_loader=train,
                       valid_data_loader=val,
-                      train_logger=train_logger)
+                      train_logger=train_logger,
+                      toolbox = Toolbox)
 
     trainer.train()
 

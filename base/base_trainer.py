@@ -28,12 +28,10 @@ class BaseTrainer:
                                 'training is performed on CPU.')
             device = 'cpu'
         else:
-            if len(config['gpus']) == 1:
-                device = 'cuda:' + str(config['gpus'][0])
-            elif torch.cuda.device_count() > 1:
-                device = 'cuda'
-                self.model = torch.nn.DataParallel(self.model)
-                torch.cuda.empty_cache()
+            self.gpus = {i: item for i, item in enumerate(self.config['gpus'])}
+            device = 'cuda'
+            self.model = torch.nn.DataParallel(self.model)
+            torch.cuda.empty_cache()
 
         self.device = torch.device(device)
         self.model = self.model.to(self.device)
@@ -102,15 +100,14 @@ class BaseTrainer:
     def _log_memory_useage(self):
         if not self.with_cuda: pass
 
-        gpus = self.config['gpus']
         template = """Memory Usage: \n{}"""
         usage = []
-        for deviceID in gpus:
+        for deviceID, device in self.gpus:
             deviceID = int(deviceID)
             allocated = torch.cuda.memory_allocated(deviceID) / (1024 * 1024)
             cached = torch.cuda.memory_cached(deviceID) / (1024 * 1024)
 
-            usage.append('    CUDA: {}  Allocated: {} MB Cached: {} MB \n'.format(deviceID, allocated, cached))
+            usage.append('    CUDA: {}  Allocated: {} MB Cached: {} MB \n'.format(device, allocated, cached))
 
         content = ''.join(usage)
         content = template.format(content)

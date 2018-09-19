@@ -135,7 +135,7 @@ class SynthTextDataset(Dataset):
                 score_map, geo_map, training_mask = generate_rbox((new_h, new_w), text_polys, text_tags)
 
             # predict 出来的feature map 是 128 * 128， 所以 gt 需要取 /4 步长
-            images = im[:, :, ::-1].astype(np.float32)
+            images = im[:, :, ::-1].astype(np.float32)  # bgr -> rgb
             score_maps = score_map[::4, ::4, np.newaxis].astype(np.float32)
             geo_maps = geo_map[::4, ::4, :].astype(np.float32)
             training_masks = training_mask[::4, ::4, np.newaxis].astype(np.float32)
