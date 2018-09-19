@@ -106,7 +106,8 @@ class Trainer(BaseTrainer):
         total_val_loss = 0
         total_val_metrics = np.zeros(len(self.metrics))
         with torch.no_grad():
-            for batch_idx, (img, score_map, geo_map, training_mask) in enumerate(self.data_loader):
+            for batch_idx, gt in enumerate(self.data_loader):
+                img, score_map, geo_map, training_mask, transcript = gt
                 img, score_map, geo_map, training_mask = self._to_tensor(img, score_map, geo_map, training_mask)
                 recog_map = None
 
@@ -114,7 +115,6 @@ class Trainer(BaseTrainer):
 
                 loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, pred_recog_map, recog_map,
                                  training_mask)
-
 
                 total_val_loss += loss.item()
 
