@@ -1,6 +1,9 @@
 from torch.utils.data import Dataset
 from .datautils import *
 import scipy.io as sio
+import logging
+
+logger = logging.getLogger(__name__)
 
 class MyDataset(Dataset):
 
@@ -55,10 +58,25 @@ class ICDAR(Dataset):
 
     }
 
-    def __init__(self, data_root, year='2013'):
+    def __init__(self, data_root, year='2013', type='training'):
+        data_root = pathlib.Path(data_root)
+
+        if year == '2013' and type == 'test':
+            logger.warning('ICDAR 2013 does not contain test ground truth. Fall back to training instead.')
 
         self.structure = ICDAR.structure[year]
-        pass
+        self.imagesRoot = data_root / self.structure[type] / self.structure[type]['images']
+        self.gtRoot = data_root / self.structure[type] / self.structure[type]['gt']
+
+    def __getitem__(self, item):
+
+        for image in self.gtRoot.glob('*.png'):
+            pass
+
+
+
+
+
 
 class ICDARDatasetFactory(Dataset):
 
