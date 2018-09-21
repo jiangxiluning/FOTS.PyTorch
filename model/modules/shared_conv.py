@@ -17,7 +17,7 @@ class SharedConv(nn.Module):
         self.backbone.eval()
 
         # Feature-merging branch
-        self.toplayer = nn.Conv2d(2048, 256, kernel_size = 1, stride = 1, padding = 0)  # Reduce channels
+        # self.toplayer = nn.Conv2d(2048, 256, kernel_size = 1, stride = 1, padding = 0)  # Reduce channels
 
         self.mergeLayers0 = DummyLayer()
 
