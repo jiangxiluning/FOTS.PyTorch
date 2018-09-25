@@ -69,10 +69,17 @@ class ICDAR(Dataset):
         self.gtRoot = data_root / self.structure[type] / self.structure[type]['gt']
 
     def __getitem__(self, item):
-
-        for image in self.gtRoot.glob('*.png'):
-            pass
-
+        bboxs = []
+        texts = []
+        for image in self.imagesRoot.glob('*.png'):
+            gt = self.gtRoot / image.with_suffix('.txt')
+            with gt.open(mode = 'r') as f:
+                for text in f:
+                    text = text.split(',')
+                    bbox = text[:8]
+                    transcript = text[-1]
+                    bboxs.append(bbox)
+                    texts.append(transcript)
 
 
 
