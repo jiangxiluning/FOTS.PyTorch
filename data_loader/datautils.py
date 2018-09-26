@@ -647,13 +647,43 @@ def image_label(txt_root, image_list, img_name, index,
     return images, score_maps, geo_maps, training_masks
 
 
+# def collate_fn(batch):
+#     img, score_map, geo_map, training_mask = zip(*batch)
+#     bs = len(score_map)
+#     images = []
+#     score_maps = []
+#     geo_maps = []
+#     training_masks = []
+#     for i in range(bs):
+#         if img[i] is not None:
+#             a = torch.from_numpy(img[i])
+#             a = a.permute(2, 0, 1)
+#             images.append(a)
+#             b = torch.from_numpy(score_map[i])
+#             b = b.permute(2, 0, 1)
+#             score_maps.append(b)
+#             c = torch.from_numpy(geo_map[i])
+#             c = c.permute(2, 0, 1)
+#             geo_maps.append(c)
+#             d = torch.from_numpy(training_mask[i])
+#             d = d.permute(2, 0, 1)
+#             training_masks.append(d)
+#     images = torch.stack(images, 0)
+#     score_maps = torch.stack(score_maps, 0)
+#     geo_maps = torch.stack(geo_maps, 0)
+#     training_masks = torch.stack(training_masks, 0)
+#
+#     return images, score_maps, geo_maps, training_masks
+
+
 def collate_fn(batch):
-    img, score_map, geo_map, training_mask = zip(*batch)
+    img, score_map, geo_map, training_mask, transcript = zip(*batch)
     bs = len(score_map)
     images = []
     score_maps = []
     geo_maps = []
     training_masks = []
+    transcripts = []
     for i in range(bs):
         if img[i] is not None:
             a = torch.from_numpy(img[i])
@@ -668,12 +698,14 @@ def collate_fn(batch):
             d = torch.from_numpy(training_mask[i])
             d = d.permute(2, 0, 1)
             training_masks.append(d)
+
     images = torch.stack(images, 0)
     score_maps = torch.stack(score_maps, 0)
     geo_maps = torch.stack(geo_maps, 0)
     training_masks = torch.stack(training_masks, 0)
+    # TODO: need to implement the transformation for transcript as we need to compute ctc loss
 
-    return images, score_maps, geo_maps, training_masks
+    return images, score_maps, geo_maps, training_masks, transcripts
 
 
 

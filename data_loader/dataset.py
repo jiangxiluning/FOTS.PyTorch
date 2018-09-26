@@ -2,6 +2,7 @@ from torch.utils.data import Dataset
 from .datautils import *
 import scipy.io as sio
 import logging
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -67,28 +68,123 @@ class ICDAR(Dataset):
         self.structure = ICDAR.structure[year]
         self.imagesRoot = data_root / self.structure[type] / self.structure[type]['images']
         self.gtRoot = data_root / self.structure[type] / self.structure[type]['gt']
+        self.images, self.bboxs, self.transcripts = self.__loadGT()
 
-    def __getitem__(self, item):
-        bboxs = []
-        texts = []
+    def __loadGT(self):
+        all_bboxs = []
+        all_texts = []
+        all_images = []
         for image in self.imagesRoot.glob('*.png'):
+            all_images.append(self.imagesRoot / image)
             gt = self.gtRoot / image.with_suffix('.txt')
             with gt.open(mode = 'r') as f:
+                bboxes = []
+                texts = []
                 for text in f:
                     text = text.split(',')
-                    bbox = text[:8]
+                    bbox = np.array(text[:8], dtype = np.int)
                     transcript = text[-1]
-                    bboxs.append(bbox)
+                    bboxes.append(bbox)
                     texts.append(transcript)
+                bboxes = np.array(bboxes)
+                all_bboxs.append(bboxes)
+                all_texts.append(texts)
+        return all_images, all_bboxs, all_texts
 
+    def __getitem__(self, index):
+        imageName = self.images[index]
+        bboxes = self.bboxs[index] # num_words * 8
+        transcripts = self.transcripts[index]
 
+        data = self.__transform((imageName, bboxes, transcripts))
 
+        try:
+            if data is None:
+                return self.__getitem__(np.random.randint(0, len(self)))
+            else:
+                return data
+        except:
+            return self.__getitem__(np.random.randint(0, len(self)))
 
+    def __len__(self):
+        return len(self.images)
 
-class ICDARDatasetFactory(Dataset):
+    def __transform(self, gt, input_size = 512, random_scale = np.array([0.5, 1, 2.0, 3.0]),
+                        background_ratio = 3. / 8):
+        '''
 
-    def __init__(self, year='2013'):
-        pass
+        :param gt: iamge path (str), wordBBoxes (2 * 4 * num_words), transcripts (multiline)
+
+        :return:
+        '''
+
+        imagePath, wordBBoxes, transcripts = gt
+        im = cv2.imread(imagePath.as_posix())
+        #wordBBoxes = np.expand_dims(wordBBoxes, axis = 2) if (wordBBoxes.ndim == 2) else wordBBoxes
+        #_, _, numOfWords = wordBBoxes.shape
+        numOfWords = len(wordBBoxes)
+        text_polys = wordBBoxes  # num_words * 8
+        transcripts = [word for line in transcripts for word in line.split()]
+        text_tags = [True if(tag == '*' or tag == '###') else False for tag in transcripts] # ignore '###'
+
+        if numOfWords == len(transcripts):
+            h, w, _ = im.shape
+            text_polys, text_tags = check_and_validate_polys(text_polys, text_tags, (h, w))
+
+            rd_scale = np.random.choice(random_scale)
+            im = cv2.resize(im, dsize = None, fx = rd_scale, fy = rd_scale)
+            text_polys *= rd_scale
+
+            # print rd_scale
+            # random crop a area from image
+            if np.random.rand() < background_ratio:
+                # crop background
+                im, text_polys, text_tags = crop_area(im, text_polys, text_tags, crop_background = True)
+                # if text_polys.shape[0] > 0:
+                #     # cannot find background
+                #     pass
+                # pad and resize image
+                new_h, new_w, _ = im.shape
+                max_h_w_i = np.max([new_h, new_w, input_size])
+                im_padded = np.zeros((max_h_w_i, max_h_w_i, 3), dtype = np.uint8)
+                im_padded[:new_h, :new_w, :] = im.copy()
+                im = cv2.resize(im_padded, dsize = (input_size, input_size))
+                score_map = np.zeros((input_size, input_size), dtype = np.uint8)
+                geo_map_channels = 5
+                #                     geo_map_channels = 5 if FLAGS.geometry == 'RBOX' else 8
+                geo_map = np.zeros((input_size, input_size, geo_map_channels), dtype = np.float32)
+                training_mask = np.ones((input_size, input_size), dtype = np.uint8)
+            else:
+                im, text_polys, text_tags = crop_area(im, text_polys, text_tags, crop_background = False)
+                # if text_polys.shape[0] == 0:
+                #     pass
+                h, w, _ = im.shape
+
+                # pad the image to the training input size or the longer side of image
+                new_h, new_w, _ = im.shape
+                max_h_w_i = np.max([new_h, new_w, input_size])
+                im_padded = np.zeros((max_h_w_i, max_h_w_i, 3), dtype = np.uint8)
+                im_padded[:new_h, :new_w, :] = im.copy()
+                im = im_padded
+                # resize the image to input size
+                new_h, new_w, _ = im.shape
+                resize_h = input_size
+                resize_w = input_size
+                im = cv2.resize(im, dsize = (resize_w, resize_h))
+                resize_ratio_3_x = resize_w / float(new_w)
+                resize_ratio_3_y = resize_h / float(new_h)
+                text_polys[:, :, 0] *= resize_ratio_3_x
+                text_polys[:, :, 1] *= resize_ratio_3_y
+                new_h, new_w, _ = im.shape
+                score_map, geo_map, training_mask = generate_rbox((new_h, new_w), text_polys, text_tags)
+
+            # predict 出来的feature map 是 128 * 128， 所以 gt 需要取 /4 步长
+            images = im[:, :, ::-1].astype(np.float32)  # bgr -> rgb
+            score_maps = score_map[::4, ::4, np.newaxis].astype(np.float32)
+            geo_maps = geo_map[::4, ::4, :].astype(np.float32)
+            training_masks = training_mask[::4, ::4, np.newaxis].astype(np.float32)
+
+            return images, score_maps, geo_maps, training_masks, transcripts
 
 class SynthTextDataset(Dataset):
 
@@ -150,7 +246,7 @@ class SynthTextDataset(Dataset):
         text_polys = wordBBoxes.reshape([8, numOfWords], order = 'F').T  # num_words * 8
         text_polys = text_polys.reshape(numOfWords, 4, 2)  # num_of_words * 4 * 2
         transcripts = [word for line in transcripts for word in line.split()]
-        text_tags = np.zeros(numOfWords)
+        text_tags = np.zeros(numOfWords) # 1 to ignore, 0 to hold
 
         if numOfWords == len(transcripts):
             h, w, _ = im.shape

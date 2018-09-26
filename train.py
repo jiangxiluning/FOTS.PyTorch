@@ -1,13 +1,12 @@
 import argparse
 import json
 import logging
-import math
 import os
 import pathlib
 
-from torch.utils.data import random_split
-
 from data_loader import SynthTextDataLoaderFactory
+from data_loader import OCRDataLoaderFactory
+from data_loader.dataset import ICDAR
 from logger import Logger
 from model.loss import *
 from model.model import *
@@ -18,31 +17,6 @@ from utils.bbox import Toolbox
 logging.basicConfig(level=logging.DEBUG, format='')
 
 
-ICDAR2015_DATA_ROOT = pathlib.Path('/Users/luning/Dev/data/icdar2015/train')
-
-
-def train_val_split(dataset, ratio: str='8:2'):
-    '''
-
-    :param ratio: train v.s. val etc. 8:2
-    :param dataset:
-    :return:
-    '''
-
-    try:
-        train_part, val_part = ratio.split(':')
-        train_part, val_part = int(train_part), int(val_part)
-    except:
-        print('ratio is illegal.')
-        train_part, val_part = 8, 2
-
-    train_len =  math.floor(len(dataset) * (train_part / (train_part + val_part)))
-    val_len = len(dataset) - train_len
-
-    train, val = random_split(dataset, [train_len, val_len])
-    return train, val
-
-
 def main(config, resume):
     train_logger = Logger()
 
@@ -51,13 +25,13 @@ def main(config, resume):
     train = data_loader.train()
     val = data_loader.val()
 
-    # icdar 2015
-    # custom_dataset = MyDataset(DATA_ROOT / 'ch4_training_images',
-    #                            DATA_ROOT / 'ch4_training_localization_transcription_gt')
-    #
-    # train_dataset, val_dataset = train_val_split(custom_dataset)
-    # data_loader = DataLoader(train_dataset, collate_fn = collate_fn, batch_size = 32, shuffle = True)
-    # valid_data_loader = DataLoader(val_dataset, collate_fn = collate_fn, batch_size = 32, shuffle = True)
+    # ICDAR 2015
+    data_root = pathlib.Path(config['data_loader']['data_dir'])
+    ICDARDataset2015 = ICDAR(data_root)
+    data_loader = OCRDataLoaderFactory(config, ICDARDataset2015)
+    train = data_loader.train()
+    val = data_loader.val()
+
     os.environ['CUDA_VISIBLE_DEVICES'] = ','.join([str(i) for i in config['gpus']])
     model = eval(config['arch'])(config['model'])
     model.summary()
