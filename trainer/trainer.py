@@ -120,7 +120,7 @@ class Trainer(BaseTrainer):
 
                 output = (pred_score_map, pred_geo_map, pred_recog_map)
                 target = (score_map, geo_map, recog_map)
-                total_val_metrics += self._eval_metrics(output, target, training_mask)
+                #total_val_metrics += self._eval_metrics(output, target, training_mask) #TODO: should add AP metric
 
         return {
             'val_loss': total_val_loss / len(self.valid_data_loader),

@@ -39,7 +39,8 @@ class SharedConv(nn.Module):
         input = self.__mean_image_subtraction(input)
 
         # bottom up
-        f = self.__foward_backbone(input)
+        with torch.no_grad(): # seems we dont need the gradients of pretrained model
+            f = self.__foward_backbone(input)
 
         g = [None] * 4
         h = [None] * 4

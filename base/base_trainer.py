@@ -107,7 +107,7 @@ class BaseTrainer:
 
         template = """Memory Usage: \n{}"""
         usage = []
-        for deviceID, device in self.gpus:
+        for deviceID, device in self.gpus.items():
             deviceID = int(deviceID)
             allocated = torch.cuda.memory_allocated(deviceID) / (1024 * 1024)
             cached = torch.cuda.memory_cached(deviceID) / (1024 * 1024)
