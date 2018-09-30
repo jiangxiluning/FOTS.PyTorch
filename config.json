@@ -1,10 +1,9 @@
 {
     "name": "FOTS",
-    "cuda": true,
+    "cuda": false,
     "gpus": [0, 1, 2, 3],
     "data_loader": {
-        //"data_dir": "/Users/luning/Dev/data/SynthText/SynthText",
-        "data_dir": "/Users/luning/Dev/data/SynthText/SynthText",
+        "data_dir": "/Users/luning/Dev/data/icdar/icdar2015/4.4/training",
         "batch_size": 32,
         "shuffle": true,
         "workers": 4

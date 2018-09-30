@@ -10,7 +10,7 @@ class BaseDataLoader:
         self.config = config
         self.batch_size = config['data_loader']['batch_size']
         self.shuffle = config['data_loader']['shuffle']
-        self.num_workers = config['data_loader']['num_workers']
+        self.num_workers = config['data_loader']['workers']
         self.batch_idx = 0
 
     def __iter__(self):

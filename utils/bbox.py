@@ -5,7 +5,7 @@ import os
 import numpy as np
 
 # import locality_aware_nms as nms_locality
-import lanms
+from . import lanms
 import shutil
 import torch
 

@@ -21,13 +21,13 @@ def main(config, resume):
     train_logger = Logger()
 
     # Synth800K
-    data_loader = SynthTextDataLoaderFactory(config)
-    train = data_loader.train()
-    val = data_loader.val()
+    # data_loader = SynthTextDataLoaderFactory(config)
+    # train = data_loader.train()
+    # val = data_loader.val()
 
     # ICDAR 2015
     data_root = pathlib.Path(config['data_loader']['data_dir'])
-    ICDARDataset2015 = ICDAR(data_root)
+    ICDARDataset2015 = ICDAR(data_root, year = '2015')
     data_loader = OCRDataLoaderFactory(config, ICDARDataset2015)
     train = data_loader.train()
     val = data_loader.val()

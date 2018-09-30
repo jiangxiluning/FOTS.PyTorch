@@ -22,23 +22,28 @@ class BaseTrainer:
         self.save_freq = config['trainer']['save_freq']
         self.verbosity = config['trainer']['verbosity']
 
-        self.with_cuda = config['cuda'] and torch.cuda.is_available()
-        if config['cuda'] and not torch.cuda.is_available():
+        if torch.cuda.is_available():
+            if config['cuda']:
+                self.with_cuda = True
+                self.gpus = {i: item for i, item in enumerate(self.config['gpus'])}
+                device = 'cuda'
+                if torch.cuda.device_count() > 1 and len(self.gpus) > 1:
+                    self.model = torch.nn.DataParallel(self.model)
+                torch.cuda.empty_cache()
+            else:
+                self.with_cuda = False
+                device = 'cpu'
+        else:
             self.logger.warning('Warning: There\'s no CUDA support on this machine, '
                                 'training is performed on CPU.')
+            self.with_cuda = False
             device = 'cpu'
-        else:
-            self.gpus = {i: item for i, item in enumerate(self.config['gpus'])}
-            device = 'cuda'
-            self.model = torch.nn.DataParallel(self.model)
-            torch.cuda.empty_cache()
 
         self.device = torch.device(device)
         self.model = self.model.to(self.device)
 
         self.logger.debug('Model is initialized.')
         self._log_memory_useage()
-
 
         self.train_logger = train_logger
         self.optimizer = getattr(optim, config['optimizer_type'])(model.parameters(),
@@ -98,7 +103,7 @@ class BaseTrainer:
                 self.logger.info('New Learning Rate: {:.6f}'.format(lr))
 
     def _log_memory_useage(self):
-        if not self.with_cuda: pass
+        if not self.with_cuda: return
 
         template = """Memory Usage: \n{}"""
         usage = []

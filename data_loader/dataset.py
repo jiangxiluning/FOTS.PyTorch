@@ -66,24 +66,25 @@ class ICDAR(Dataset):
             logger.warning('ICDAR 2013 does not contain test ground truth. Fall back to training instead.')
 
         self.structure = ICDAR.structure[year]
-        self.imagesRoot = data_root / self.structure[type] / self.structure[type]['images']
-        self.gtRoot = data_root / self.structure[type] / self.structure[type]['gt']
+        self.imagesRoot = data_root / self.structure[type]['images']
+        self.gtRoot = data_root / self.structure[type]['gt']
         self.images, self.bboxs, self.transcripts = self.__loadGT()
 
     def __loadGT(self):
         all_bboxs = []
         all_texts = []
         all_images = []
-        for image in self.imagesRoot.glob('*.png'):
-            all_images.append(self.imagesRoot / image)
-            gt = self.gtRoot / image.with_suffix('.txt')
+        for image in self.imagesRoot.glob('*.jpg'):
+            all_images.append(image)
+            gt = self.gtRoot / image.with_name('gt_{}'.format(image.stem)).with_suffix('.txt').name
             with gt.open(mode = 'r') as f:
                 bboxes = []
                 texts = []
-                for text in f:
-                    text = text.split(',')
-                    bbox = np.array(text[:8], dtype = np.int)
-                    transcript = text[-1]
+                for line in f:
+                    text = line.strip('\ufeff').strip('\xef\xbb\xbf').split(',')
+                    x1, y1, x2, y2, x3, y3, x4, y4 = list(map(float, text[:8]))
+                    bbox = [[x1, y1], [x2, y2], [x3, y3], [x4, y4]]
+                    transcript = text[-1].strip()
                     bboxes.append(bbox)
                     texts.append(transcript)
                 bboxes = np.array(bboxes)
