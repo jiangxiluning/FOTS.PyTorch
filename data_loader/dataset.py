@@ -97,13 +97,8 @@ class ICDAR(Dataset):
         bboxes = self.bboxs[index] # num_words * 8
         transcripts = self.transcripts[index]
 
-        data = self.__transform((imageName, bboxes, transcripts))
-
         try:
-            if data is None:
-                return self.__getitem__(np.random.randint(0, len(self)))
-            else:
-                return data
+            return self.__transform((imageName, bboxes, transcripts))
         except:
             return self.__getitem__(np.random.randint(0, len(self)))
 
