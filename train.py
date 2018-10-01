@@ -20,17 +20,17 @@ logging.basicConfig(level=logging.DEBUG, format='')
 def main(config, resume):
     train_logger = Logger()
 
-    # Synth800K
-    # data_loader = SynthTextDataLoaderFactory(config)
-    # train = data_loader.train()
-    # val = data_loader.val()
-
-    # ICDAR 2015
-    data_root = pathlib.Path(config['data_loader']['data_dir'])
-    ICDARDataset2015 = ICDAR(data_root, year = '2015')
-    data_loader = OCRDataLoaderFactory(config, ICDARDataset2015)
-    train = data_loader.train()
-    val = data_loader.val()
+    if config['data_loader']['dataset'] == 'icdar2015':
+        # ICDAR 2015
+        data_root = pathlib.Path(config['data_loader']['data_dir'])
+        ICDARDataset2015 = ICDAR(data_root, year='2015')
+        data_loader = OCRDataLoaderFactory(config, ICDARDataset2015)
+        train = data_loader.train()
+        val = data_loader.val()
+    elif config['data_loader']['dataset'] == 'synth800k':
+        data_loader = SynthTextDataLoaderFactory(config)
+        train = data_loader.train()
+        val = data_loader.val()
 
     os.environ['CUDA_VISIBLE_DEVICES'] = ','.join([str(i) for i in config['gpus']])
     model = eval(config['arch'])(config['model'])

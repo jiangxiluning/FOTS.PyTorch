@@ -77,14 +77,14 @@ class ICDAR(Dataset):
         for image in self.imagesRoot.glob('*.jpg'):
             all_images.append(image)
             gt = self.gtRoot / image.with_name('gt_{}'.format(image.stem)).with_suffix('.txt').name
-            with gt.open(mode = 'r') as f:
+            with gt.open(mode='r') as f:
                 bboxes = []
                 texts = []
                 for line in f:
-                    text = line.strip('\ufeff').strip('\xef\xbb\xbf').split(',')
+                    text = line.strip('\ufeff').strip('\xef\xbb\xbf').strip().split(',')
                     x1, y1, x2, y2, x3, y3, x4, y4 = list(map(float, text[:8]))
                     bbox = [[x1, y1], [x2, y2], [x3, y3], [x4, y4]]
-                    transcript = text[-1].strip()
+                    transcript = text[8]
                     bboxes.append(bbox)
                     texts.append(transcript)
                 bboxes = np.array(bboxes)
@@ -181,6 +181,8 @@ class ICDAR(Dataset):
             training_masks = training_mask[::4, ::4, np.newaxis].astype(np.float32)
 
             return images, score_maps, geo_maps, training_masks, transcripts
+        else:
+            raise TypeError('Number of bboxes is inconsist with number of transcripts ')
 
 class SynthTextDataset(Dataset):
 
@@ -213,13 +215,8 @@ class SynthTextDataset(Dataset):
         wordBBoxes = self.wordBBoxes[index] # 2 * 4 * num_words
         transcripts = self.transcripts[index]
 
-        data = self.__transform((imageName, wordBBoxes, transcripts))
-
         try:
-            if data is None:
-                return self.__getitem__(np.random.randint(0, len(self)))
-            else:
-                return data
+            return self.__transform((imageName, wordBBoxes, transcripts))
         except:
             return self.__getitem__(np.random.randint(0, len(self)))
 
@@ -304,3 +301,5 @@ class SynthTextDataset(Dataset):
             return images, score_maps, geo_maps, training_masks, transcripts
 
             #return images, score_maps, geo_maps, training_masks
+        else:
+            raise TypeError('Number of bboxes is inconsist with number of transcripts ')
