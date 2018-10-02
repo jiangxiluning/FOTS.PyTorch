@@ -15,6 +15,9 @@ class SharedConv(nn.Module):
         super(SharedConv, self).__init__()
         self.backbone = bbNet
         self.backbone.eval()
+        # backbone as feature extractor
+        for param in self.backbone.parameters():
+            param.requires_grad = False
 
         # Feature-merging branch
         # self.toplayer = nn.Conv2d(2048, 256, kernel_size = 1, stride = 1, padding = 0)  # Reduce channels
@@ -39,8 +42,8 @@ class SharedConv(nn.Module):
         input = self.__mean_image_subtraction(input)
 
         # bottom up
-        with torch.no_grad(): # seems we dont need the gradients of pretrained model
-            f = self.__foward_backbone(input)
+
+        f = self.__foward_backbone(input)
 
         g = [None] * 4
         h = [None] * 4
@@ -59,7 +62,7 @@ class SharedConv(nn.Module):
 
         # i = 4
         h[3] = self.mergeLayers3(g[2], f[3])
-        g[3] = self.__unpool(h[3])
+        #g[3] = self.__unpool(h[3])
 
         # final stage
         final = self.mergeLayers4(h[3])

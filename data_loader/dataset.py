@@ -136,9 +136,9 @@ class ICDAR(Dataset):
             if np.random.rand() < background_ratio:
                 # crop background
                 im, text_polys, text_tags = crop_area(im, text_polys, text_tags, crop_background = True)
-                # if text_polys.shape[0] > 0:
-                #     # cannot find background
-                #     pass
+                if text_polys.shape[0] > 0:
+                    # cannot find background
+                    raise TypeError('cannot find background')
                 # pad and resize image
                 new_h, new_w, _ = im.shape
                 max_h_w_i = np.max([new_h, new_w, input_size])
@@ -152,8 +152,8 @@ class ICDAR(Dataset):
                 training_mask = np.ones((input_size, input_size), dtype = np.uint8)
             else:
                 im, text_polys, text_tags = crop_area(im, text_polys, text_tags, crop_background = False)
-                # if text_polys.shape[0] == 0:
-                #     pass
+                if text_polys.shape[0] == 0:
+                    raise TypeError('cannot find background')
                 h, w, _ = im.shape
 
                 # pad the image to the training input size or the longer side of image

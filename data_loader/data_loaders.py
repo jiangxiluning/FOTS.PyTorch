@@ -25,7 +25,7 @@ class SynthTextDataLoaderFactory(BaseDataLoader):
 
     def val(self):
         shuffle = self.config['validation']['shuffle']
-        valLoader = torchdata.DataLoader(self.__trainDataset, num_workers = self.num_workers, batch_size = self.batch_size,
+        valLoader = torchdata.DataLoader(self.__valDataset, num_workers = self.num_workers, batch_size = self.batch_size,
                                          shuffle = shuffle, collate_fn = collate_fn)
         return valLoader
 
@@ -65,7 +65,7 @@ class OCRDataLoaderFactory(BaseDataLoader):
 
     def val(self):
         shuffle = self.config['validation']['shuffle']
-        valLoader = torchdata.DataLoader(self.__trainDataset, num_workers = self.num_workers, batch_size = self.batch_size,
+        valLoader = torchdata.DataLoader(self.__valDataset, num_workers = self.num_workers, batch_size = self.batch_size,
                                          shuffle = shuffle, collate_fn = collate_fn)
         return valLoader
 

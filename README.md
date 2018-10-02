@@ -2,6 +2,17 @@
  - ICDAR 数据集读取
  - SynthText 800K 数据集读取
  - detection branch 的 loss 计算
+ - eval 支持验证模型
+ - 多 gpu 训练
+ 
+ 
+## Questions
+
+- Should I fix weights of the backbone network, resnet50 ?
+  ```python
+  for param in self.backbone.parameters():
+      param.requires_grad = False
+  ```
  
  
 

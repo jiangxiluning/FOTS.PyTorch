@@ -35,7 +35,8 @@ def main(args:argparse.Namespace):
 
     for image_fn in input_dir.glob('*.jpg'):
         try:
-            ploy, im = Toolbox.predict(image_fn, model, with_image, output_dir, with_gpu)
+            with torch.no_grad():
+                ploy, im = Toolbox.predict(image_fn, model, with_image, output_dir, with_gpu)
         except Exception as e:
             traceback.print_exc()
 
