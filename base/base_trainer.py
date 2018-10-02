@@ -100,7 +100,7 @@ class BaseTrainer:
             if self.lr_scheduler and epoch % self.lr_scheduler_freq == 0:
                 self.lr_scheduler.step(epoch)
                 lr = self.lr_scheduler.get_lr()[0]
-                self.logger.info('New Learning Rate: {:.6f}'.format(lr))
+                self.logger.info('New Learning Rate: {:.8f}'.format(lr))
 
     def _log_memory_useage(self):
         if not self.with_cuda: return
@@ -170,7 +170,7 @@ class BaseTrainer:
             for state in self.optimizer.state.values():
                 for k, v in state.items():
                     if isinstance(v, torch.Tensor):
-                        state[k] = v.cuda(self.gpu)
+                        state[k] = v.cuda(self.gpus)
         self.train_logger = checkpoint['logger']
         self.config = checkpoint['config']
         self.logger.info("Checkpoint '{}' (epoch {}) loaded".format(resume_path, self.start_epoch))

@@ -17,13 +17,13 @@
     "lr_scheduler_type": "ExponentialLR",
     "lr_scheduler_freq": 1,
     "lr_scheduler": {
-            "gamma": 0.8685113737513527
+            "gamma": 0.94,
     },
  
-    "optimizer_type": "SGD",
+    "optimizer_type": "Adam",
     "optimizer": {
-        "lr": 0.001,
-        "weight_decay": 0
+        "lr": 0.0001,
+        "weight_decay": 1e-5
     },
     "loss": "FOTSLoss",
     "metrics": ["my_metric", "my_metric2"],

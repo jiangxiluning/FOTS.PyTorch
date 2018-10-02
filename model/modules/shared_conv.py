@@ -26,7 +26,7 @@ class SharedConv(nn.Module):
         self.mergeLayers3 = HLayer(64 + 256, 32)
 
         self.mergeLayers4 = nn.Conv2d(32, 32, kernel_size = 3, padding = 1)
-        self.bn5 = nn.BatchNorm2d(32)
+        self.bn5 = nn.BatchNorm2d(32, momentum=0.003)
 
         # Output Layer
         self.textScale = 512
@@ -137,10 +137,10 @@ class HLayer(nn.Module):
         super(HLayer, self).__init__()
 
         self.conv2dOne = nn.Conv2d(inputChannels, outputChannels, kernel_size = 1)
-        self.bnOne = nn.BatchNorm2d(outputChannels)
+        self.bnOne = nn.BatchNorm2d(outputChannels, momentum=0.003)
 
         self.conv2dTwo = nn.Conv2d(outputChannels, outputChannels, kernel_size = 3, padding = 1)
-        self.bnTwo = nn.BatchNorm2d(outputChannels)
+        self.bnTwo = nn.BatchNorm2d(outputChannels, momentum=0.003)
 
     def forward(self, inputPrevG, inputF):
         input = torch.cat([inputPrevG, inputF], dim = 1)

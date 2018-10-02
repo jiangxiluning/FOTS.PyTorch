@@ -6,7 +6,6 @@ import numpy as np
 
 # import locality_aware_nms as nms_locality
 from . import lanms
-import shutil
 import torch
 
 
@@ -184,7 +183,7 @@ class Toolbox:
         xy_text = xy_text[np.argsort(xy_text[:, 0])]
         # restore
         start = time.time()
-        text_box_restored = Toolbox.restore_rectangle(xy_text[:, ::-1] * 4, geo_map[xy_text[:, 0], xy_text[:, 1], :])  # N*4*2
+        text_box_restored = Toolbox.restore_rectangle_rbox(xy_text[:, ::-1] * 4, geo_map[xy_text[:, 0], xy_text[:, 1], :])  # N*4*2
         # print('{} text boxes before nms'.format(text_box_restored.shape[0]))
         boxes = np.zeros((text_box_restored.shape[0], 9), dtype = np.float32)
         boxes[:, :8] = text_box_restored.reshape((-1, 8))
@@ -292,10 +291,14 @@ class Toolbox:
         return box_List
 
     @staticmethod
-    def predict(im, with_img=False):
+    def predict(im_fn, model, with_img=False, output_dir=None, with_gpu=False):
+        im = cv2.imread(im_fn.as_posix())[:, :, ::-1]
         im_resized, (ratio_h, ratio_w) = Toolbox.resize_image(im)
         im_resized = im_resized.astype(np.float32)
-        im_resized = torch.from_numpy(im_resized).cuda()
+        im_resized = torch.from_numpy(im_resized)
+        if with_gpu:
+            im_resized = im_resized.cuda()
+
         im_resized = im_resized.unsqueeze(0)
         im_resized = im_resized.permute(0, 3, 1, 2)
 
@@ -309,7 +312,7 @@ class Toolbox:
         score = score.data.cpu().numpy()
         geometry = geometry.data.cpu().numpy()
 
-        boxes, timer = Toolbox.detect(score_map = score, geo_map = geometry, timer = timer)
+        boxes, timer = Toolbox.detect(score_map=score, geo_map=geometry, timer=timer)
         print('imgpath{} : net {:.0f}ms, restore {:.0f}ms, nms {:.0f}ms'.format(im_fn, timer['net'] * 1000,
                                                                                 timer['restore'] * 1000,
                                                                                 timer['nms'] * 1000))
@@ -334,7 +337,11 @@ class Toolbox:
 
                 if with_img:
                     cv2.polylines(im[:, :, ::-1], [box.astype(np.int32).reshape((-1, 1, 2))], True,
-                                  color = (255, 255, 0), thickness = 1)
+                                  color=(255, 255, 0), thickness=1)
+
+                if output_dir:
+                    img_path = output_dir / im_fn.name
+                    cv2.imwrite(img_path.as_posix(), im[:, :, ::-1])
 
         return poly, im
 
