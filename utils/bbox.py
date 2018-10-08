@@ -163,8 +163,8 @@ class Toolbox:
         return im, (ratio_h, ratio_w)
 
     @staticmethod
-    def detect(score_map, geo_map, timer, score_map_thresh = 1e-5, box_thresh = 1e-8, nms_thres = 0.1):
-        '''
+    def detect(score_map, geo_map, timer, score_map_thresh = 0.5, box_thresh = 0.1, nms_thres = 0.2):
+        '''1e-5
         restore text boxes from score map and geo map
         :param score_map:
         :param geo_map:
@@ -322,6 +322,7 @@ class Toolbox:
             boxes[:, :, 0] /= ratio_w
             boxes[:, :, 1] /= ratio_h
 
+        polys = []
         if boxes is not None:
 
             for box in boxes:
@@ -331,6 +332,7 @@ class Toolbox:
                     continue
                 poly = np.array([[box[0, 0], box[0, 1]], [box[1, 0], box[1, 1]], [box[2, 0], box[2, 1]],
                                  [box[3, 0], box[3, 1]]])
+                polys.append(polys)
                 p_area = Toolbox.polygon_area(poly)
                 if p_area > 0:
                     poly = poly[(0, 3, 2, 1), :]
@@ -339,11 +341,11 @@ class Toolbox:
                     cv2.polylines(im[:, :, ::-1], [box.astype(np.int32).reshape((-1, 1, 2))], True,
                                   color=(255, 255, 0), thickness=1)
 
-                if output_dir:
-                    img_path = output_dir / im_fn.name
-                    cv2.imwrite(img_path.as_posix(), im[:, :, ::-1])
+        if output_dir:
+            img_path = output_dir / im_fn.name
+            cv2.imwrite(img_path.as_posix(), im[:, :, ::-1])
 
-        return poly, im
+        return polys, im
 
     @staticmethod
     def get_images_for_test(test_data_path):

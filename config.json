@@ -15,9 +15,9 @@
     },
 
     "lr_scheduler_type": "ExponentialLR",
-    "lr_scheduler_freq": 1,
+    "lr_scheduler_freq": 10000,
     "lr_scheduler": {
-            "gamma": 0.94,
+            "gamma": 0.94
     },
  
     "optimizer_type": "Adam",
@@ -28,7 +28,7 @@
     "loss": "FOTSLoss",
     "metrics": ["my_metric", "my_metric2"],
     "trainer": {
-        "epochs": 1000,
+        "epochs": 100000,
         "save_dir": "saved/",
         "save_freq": 1,
         "verbosity": 2,
