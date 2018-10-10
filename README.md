@@ -1,7 +1,7 @@
 ## I have finished the detection branch and am still training the model to verify its correctness. All the features will be published to develop branch, and keep master stable. 
  - ICDAR Dataset 
  - SynthText 800K Dataset
- - detection branch 
+ - detection branch (verified on the training set, It works!)
  - eval
  - multi-gpu training
  
@@ -13,6 +13,7 @@
   for param in self.backbone.parameters():
       param.requires_grad = False
   ```
+  Answer: Yes, the backbone network is used as a feature extractor, so we do not need to modify the weights.
  
  
 

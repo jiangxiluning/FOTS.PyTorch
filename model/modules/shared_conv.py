@@ -69,19 +69,23 @@ class SharedConv(nn.Module):
         final = self.bn5(final)
         final = F.relu(final)
 
-        score = self.scoreMap(final)
-        score = torch.sigmoid(score)
+        # score = self.scoreMap(final)
+        # score = torch.sigmoid(score)
+        #
+        # geoMap = self.geoMap(final)
+        # # 出来的是 normalise 到 0 -1 的值是到上下左右的距离，但是图像他都缩放到  512 * 512 了，但是 gt 里是算的绝对数值来的
+        # geoMap = torch.sigmoid(geoMap) * 512
+        #
+        # angleMap = self.angleMap(final)
+        # angleMap = (torch.sigmoid(angleMap) - 0.5) * math.pi / 2
+        #
+        # geometry = torch.cat([geoMap, angleMap], dim = 1)
+        #
+        # return score, geometry
 
-        geoMap = self.geoMap(final)
-        # 出来的是 normalise 到 0 -1 的值是到上下左右的距离，但是图像他都缩放到  512 * 512 了，但是 gt 里是算的绝对数值来的
-        geoMap = torch.sigmoid(geoMap) * 512
+        return final
 
-        angleMap = self.angleMap(final)
-        angleMap = (torch.sigmoid(angleMap) - 0.5) * math.pi / 2
 
-        geometry = torch.cat([geoMap, angleMap], dim = 1)
-
-        return score, geometry
 
     def __foward_backbone(self, input):
         conv2 = None
