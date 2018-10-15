@@ -4,9 +4,12 @@
  - detection branch (verified on the training set, It works!)
  - eval
  - multi-gpu training
+
+# Introduction
+
+This is a PyTorch implementation of [FOTS](https://arxiv.org/abs/1801.01671). 
  
- 
-## Questions
+# Questions
 
 - Should I fix weights of the backbone network, resnet50 ?
   ```python
@@ -15,8 +18,82 @@
   ```
   Answer: Yes, the backbone network is used as a feature extractor, so we do not need to modify the weights.
  
- 
+# Instruction
 
-# Introduction
+## Requirements
 
-This is a PyTorch implementation of [FOTS](https://arxiv.org/abs/1801.01671).
+1. build tools
+
+   ```
+   ./build.sh
+   ```
+
+2. prepare ICDAR Dataset
+
+
+## Training
+
+1. understand your training configuration
+
+   ```
+   {
+        "name": "FOTS",
+        "cuda": false,
+        "gpus": [0, 1, 2, 3],
+        "data_loader": {
+            "dataset":"icdar2015",
+            "data_dir": "/Users/luning/Dev/data/icdar/icdar2015/4.4/training",
+            "batch_size": 32,
+            "shuffle": true,
+            "workers": 4
+        },
+        "validation": {
+            "validation_split": 0.1,
+            "shuffle": true
+        },
+    
+        "lr_scheduler_type": "ExponentialLR",
+        "lr_scheduler_freq": 10000,
+        "lr_scheduler": {
+                "gamma": 0.94
+        },
+     
+        "optimizer_type": "Adam",
+        "optimizer": {
+            "lr": 0.0001,
+            "weight_decay": 1e-5
+        },
+        "loss": "FOTSLoss",
+        "metrics": ["my_metric", "my_metric2"],
+        "trainer": {
+            "epochs": 100000,
+            "save_dir": "saved/",
+            "save_freq": 10,
+            "verbosity": 2,
+            "monitor": "val_loss",
+            "monitor_mode": "min"
+        },
+        "arch": "FOTSModel",
+        "model": {
+            "mode": "detection"
+        }
+   }
+
+   ``` 
+
+2. train your model
+
+   ```
+   python train.py -c config
+
+   ```
+   
+## Evaluation
+
+```
+python eval.py -m <model.tar.gz> -i <input_images_folder> -o <output_folders>
+
+```
+
+
+
