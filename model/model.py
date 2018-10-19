@@ -4,6 +4,7 @@ import torch
 import math
 import torch.nn.functional as F
 from .modules import shared_conv
+from .modules.roi_rotate import ROIRotate
 import pretrainedmodels as pm
 
 
@@ -17,15 +18,17 @@ class FOTSModel(BaseModel):
         self.sharedConv = shared_conv.SharedConv(bbNet)
         self.recognizer = Recognizer()
         self.detector = Detector()
+        self.roirotate = ROIRotate()
 
-    def forward(self, input):
+    def forward(self, *input):
         '''
 
         :param input:
         :return:
         '''
+        image, text_polys, poly_image_index = input
         score_map, geo_map, recog_map = None, None, None
-        feature_map = self.sharedConv.forward(input)
+        feature_map = self.sharedConv.forward(image)
         if self.mode == 'detection':
             score_map, geo_map = self.detector(feature_map)
 
@@ -34,7 +37,8 @@ class FOTSModel(BaseModel):
 
         if self.mode == 'united':
             score_map, geo_map = self.detector(feature_map)
-            recog_map = self.recognizer(feature_map)
+            crops, padded_weight = self.roirotate(image, feature_map, (score_map, geo_map), text_polys)
+            recog_map = self.recognizer(crops)
 
         return score_map, geo_map, recog_map
 

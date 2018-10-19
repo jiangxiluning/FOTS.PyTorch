@@ -298,8 +298,6 @@ class SynthTextDataset(Dataset):
             geo_maps = geo_map[::4, ::4, :].astype(np.float32)
             training_masks = training_mask[::4, ::4, np.newaxis].astype(np.float32)
 
-            return images, score_maps, geo_maps, training_masks, transcripts
-
-            #return images, score_maps, geo_maps, training_masks
+            return images, score_maps, geo_maps, training_masks, (transcripts, text_polys, text_tags)
         else:
             raise TypeError('Number of bboxes is inconsist with number of transcripts ')

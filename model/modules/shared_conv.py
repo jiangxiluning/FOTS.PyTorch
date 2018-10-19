@@ -85,8 +85,6 @@ class SharedConv(nn.Module):
 
         return final
 
-
-
     def __foward_backbone(self, input):
         conv2 = None
         conv3 = None
