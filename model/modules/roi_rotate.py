@@ -1,5 +1,6 @@
 from roi_align.crop_and_resize import CropAndResizeFunction
 from torch import nn
+import cv2
 
 class ROIRotate(nn.Module):
 
@@ -11,12 +12,12 @@ class ROIRotate(nn.Module):
 
         self.height = height
 
-    def forward(self, images, feature_map, predicted, boxes_batch):
+    def forward(self, feature_map, predicted, boxes_batch):
         '''
 
-        :param im: N * 512 * 512 * 3
         :param feature_map:  N * 128 * 128 * 32
-        :param boxes: list of box array
+        :param boxes_batch: list of box array , box on image with 512 x 512
+        :param predicted: list of box array , box on image with 512 x 512
         :return:
         '''
 
@@ -26,17 +27,27 @@ class ROIRotate(nn.Module):
             boxes_list = []
             boxes_indexes = []
             boxes_width = []
-            for img_index, image, boxes in enumerate(zip(images, boxes_batch)):
+            for img_index, boxes in enumerate(zip(boxes_batch)):
 
                 for box_index, box in enumerate(boxes):
-                    x1, y1, x2, y2, angle = box
-                    # 旋转 box 至水平
-                    x1_, y1_, x2_, y2_ = x1, y1, x2, y2
+                    x1, y1, x2, y2, _, _, x4, y4 = box[:8] / 4 # 521 -> 128
+                    angle = box[-1]
 
-                    box_h = y2_ - y1_
-                    box_w = x2_ - x1_
+                    mapped_x1, mapped_y1 = (0, 0)
+                    mapped_x4, mapped_y4 = (0, self.height)
+
+                    box_h = y4 - y1
+                    box_w = x2 - x1
                     width = self.height * box_w / box_h
                     max_width = width if width > max_width else max_width
+
+                    mapped_x2, mapped_y2 = (width, 0)
+
+                    affine_matrix = cv2.getAffineTransform([(x1, y1), (x2, y2), (x4, y4)], [
+                        (mapped_x1, mapped_y1), (mapped_x2, mapped_y2), (mapped_x4, mapped_y4)
+                    ])
+
+                    feature_map_rotated = cv2.transform(feature_map, affine_matrix)
 
                     boxes_list.append(box)
                     boxes_indexes.append(img_index)
@@ -44,7 +55,7 @@ class ROIRotate(nn.Module):
 
             boxes_padded_width = [max_width - w for w in boxes_width]
 
-            crops = CropAndResizeFunction(self.height, max_width)(images, boxes_list, boxes_indexes)
+            crops = CropAndResizeFunction(self.height, max_width)(feature_map, boxes_list, boxes_indexes)
 
             return crops, boxes_padded_width
 
