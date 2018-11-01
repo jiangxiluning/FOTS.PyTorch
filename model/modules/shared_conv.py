@@ -33,9 +33,7 @@ class SharedConv(nn.Module):
 
         # Output Layer
         self.textScale = 512
-        self.scoreMap = nn.Conv2d(32, 1, kernel_size = 1)
-        self.geoMap = nn.Conv2d(32, 4, kernel_size = 1)
-        self.angleMap = nn.Conv2d(32, 1, kernel_size = 1)
+
 
     def forward(self, input):
 

@@ -26,7 +26,7 @@ class FOTSModel(BaseModel):
         :param input:
         :return:
         '''
-        image, text_polys, poly_image_index = input
+        image, boxes = input
         score_map, geo_map, recog_map = None, None, None
         feature_map = self.sharedConv.forward(image)
         if self.mode == 'detection':
@@ -37,7 +37,7 @@ class FOTSModel(BaseModel):
 
         if self.mode == 'united':
             score_map, geo_map = self.detector(feature_map)
-            crops, padded_weight = self.roirotate(image, feature_map, (score_map, geo_map), text_polys)
+            crops, padded_width = self.roirotate(feature_map, boxes)
             recog_map = self.recognizer(crops)
 
         return score_map, geo_map, recog_map
@@ -56,8 +56,12 @@ class Detector(nn.Module):
 
     def __init__(self):
         super().__init__()
+        self.scoreMap = nn.Conv2d(32, 1, kernel_size = 1)
+        self.geoMap = nn.Conv2d(32, 4, kernel_size = 1)
+        self.angleMap = nn.Conv2d(32, 1, kernel_size = 1)
 
-    def forward(self, *final):
+    def forward(self, *input):
+        final,  = input
 
         score = self.scoreMap(final)
         score = torch.sigmoid(score)

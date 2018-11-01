@@ -3,6 +3,8 @@ from .datautils import *
 import scipy.io as sio
 import logging
 import numpy as np
+from itertools import  compress
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -99,8 +101,9 @@ class ICDAR(Dataset):
 
         try:
             return self.__transform((imageName, bboxes, transcripts))
-        except:
-            return self.__getitem__(np.random.randint(0, len(self)))
+        except Exception as e:
+            print(traceback.print_exc())
+            return self.__getitem__(torch.tensor(np.random.randint(0, len(self))))
 
     def __len__(self):
         return len(self.images)
@@ -119,7 +122,7 @@ class ICDAR(Dataset):
         #wordBBoxes = np.expand_dims(wordBBoxes, axis = 2) if (wordBBoxes.ndim == 2) else wordBBoxes
         #_, _, numOfWords = wordBBoxes.shape
         numOfWords = len(wordBBoxes)
-        text_polys = wordBBoxes  # num_words * 8
+        text_polys = wordBBoxes  # num_words * 4 * 2
         transcripts = [word for line in transcripts for word in line.split()]
         text_tags = [True if(tag == '*' or tag == '###') else False for tag in transcripts] # ignore '###'
 
@@ -135,7 +138,7 @@ class ICDAR(Dataset):
             # random crop a area from image
             if np.random.rand() < background_ratio:
                 # crop background
-                im, text_polys, text_tags = crop_area(im, text_polys, text_tags, crop_background = True)
+                im, text_polys, text_tags, selected_poly = crop_area(im, text_polys, text_tags, crop_background = True)
                 if text_polys.shape[0] > 0:
                     # cannot find background
                     raise TypeError('cannot find background')
@@ -151,7 +154,7 @@ class ICDAR(Dataset):
                 geo_map = np.zeros((input_size, input_size, geo_map_channels), dtype = np.float32)
                 training_mask = np.ones((input_size, input_size), dtype = np.uint8)
             else:
-                im, text_polys, text_tags = crop_area(im, text_polys, text_tags, crop_background = False)
+                im, text_polys, text_tags, selected_poly = crop_area(im, text_polys, text_tags, crop_background = False)
                 if text_polys.shape[0] == 0:
                     raise TypeError('cannot find background')
                 h, w, _ = im.shape
@@ -180,7 +183,12 @@ class ICDAR(Dataset):
             geo_maps = geo_map[::4, ::4, :].astype(np.float32)
             training_masks = training_mask[::4, ::4, np.newaxis].astype(np.float32)
 
-            return images, score_maps, geo_maps, training_masks, transcripts
+            transcripts = [transcripts[i] for i in selected_poly]
+            mask = [not (word == '*' or word == '###') for word in transcripts]
+            transcripts = list(compress(transcripts, mask))
+            text_polys = text_polys[mask].reshape((-1, 8))
+
+            return images, score_maps, geo_maps, training_masks, transcripts, text_polys
         else:
             raise TypeError('Number of bboxes is inconsist with number of transcripts ')
 

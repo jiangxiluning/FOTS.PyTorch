@@ -120,7 +120,7 @@ def crop_area(im, polys, tags, crop_background = False, max_tries = 50):
     h_axis = np.where(h_array == 0)[0]
     w_axis = np.where(w_array == 0)[0]
     if len(h_axis) == 0 or len(w_axis) == 0:
-        return im, polys, tags
+        return im, polys, tags, np.array(len(polys))
     for i in range(max_tries):
         xx = np.random.choice(w_axis, size = 2)
         xmin = np.min(xx) - pad_w
@@ -145,7 +145,7 @@ def crop_area(im, polys, tags, crop_background = False, max_tries = 50):
         if len(selected_polys) == 0:
             # no text in this area
             if crop_background:
-                return im[ymin:ymax + 1, xmin:xmax + 1, :], polys[selected_polys], tags[selected_polys]
+                return im[ymin:ymax + 1, xmin:xmax + 1, :], polys[selected_polys], tags[selected_polys], selected_polys
             else:
                 continue
         im = im[ymin:ymax + 1, xmin:xmax + 1, :]
@@ -153,9 +153,9 @@ def crop_area(im, polys, tags, crop_background = False, max_tries = 50):
         tags = tags[selected_polys]
         polys[:, :, 0] -= xmin
         polys[:, :, 1] -= ymin
-        return im, polys, tags
+        return im, polys, tags, selected_polys
 
-    return im, polys, tags
+    return im, polys, tags, np.array(len(polys))
 
 
 def shrink_poly(poly, r):
@@ -677,13 +677,13 @@ def image_label(txt_root, image_list, img_name, index,
 
 
 def collate_fn(batch):
-    img, score_map, geo_map, training_mask, transcript = zip(*batch)
+    img, score_map, geo_map, training_mask, transcripts, boxes = zip(*batch)
     bs = len(score_map)
     images = []
     score_maps = []
     geo_maps = []
     training_masks = []
-    transcripts = []
+
     for i in range(bs):
         if img[i] is not None:
             a = torch.from_numpy(img[i])
@@ -699,13 +699,14 @@ def collate_fn(batch):
             d = d.permute(2, 0, 1)
             training_masks.append(d)
 
+
     images = torch.stack(images, 0)
     score_maps = torch.stack(score_maps, 0)
     geo_maps = torch.stack(geo_maps, 0)
     training_masks = torch.stack(training_masks, 0)
     # TODO: need to implement the transformation for transcript as we need to compute ctc loss
 
-    return images, score_maps, geo_maps, training_masks, transcripts
+    return images, score_maps, geo_maps, training_masks, transcripts, boxes
 
 
 

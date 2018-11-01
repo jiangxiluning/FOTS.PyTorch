@@ -58,12 +58,12 @@ class Trainer(BaseTrainer):
         total_loss = 0
         total_metrics = np.zeros(len(self.metrics))
         for batch_idx, gt in enumerate(self.data_loader):
-            img, score_map, geo_map, training_mask, transcript = gt
+            img, score_map, geo_map, training_mask, transcripts, boxes= gt
             img, score_map, geo_map, training_mask = self._to_tensor(img, score_map, geo_map, training_mask)
             recog_map = None
 
             self.optimizer.zero_grad()
-            pred_score_map, pred_geo_map, pred_recog_map = self.model(img)
+            pred_score_map, pred_geo_map, pred_recog_map = self.model(img, boxes)
 
             loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, pred_recog_map, recog_map, training_mask)
             loss.backward()
