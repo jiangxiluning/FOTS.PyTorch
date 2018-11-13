@@ -1,6 +1,7 @@
 ### 此处默认真实值和预测值的格式均为 bs * W * H * channels
 import torch
 import torch.nn as nn
+from warpctc import CTCLoss
 
 
 class DetectionLoss(nn.Module):
@@ -53,9 +54,12 @@ class RecognitionLoss(nn.Module):
 
     def __init__(self):
         super(RecognitionLoss, self).__init__()
+        self.ctc_loss = CTCLoss() # pred, pred_len, labels, labels_len
 
     def forward(self, *input):
-        return 0
+        gt, pred = input[0], input[1]
+        loss = self.ctc_loss(pred[0].float(), pred[1].int(), gt[0].int(), gt[1].int())
+        return loss
 
 
 class FOTSLoss(nn.Module):
@@ -71,10 +75,17 @@ class FOTSLoss(nn.Module):
                 y_true_recog, y_pred_recog,
                 training_mask):
 
-        detection_loss = self.detectionLoss(y_true_cls, y_pred_cls,
-                                       y_true_geo, y_pred_geo, training_mask)
+
         if self.mode == 'recognition':
-            recognition_loss = self.recogitionLoss(y_true_recog, y_true_recog, training_mask)
-            return detection_loss + recognition_loss
+            recognition_loss = self.recogitionLoss(y_true_recog, y_pred_recog)
+            return recognition_loss
         elif self.mode == 'detection':
+            detection_loss = self.detectionLoss(y_true_cls, y_pred_cls,
+                                                y_true_geo, y_pred_geo, training_mask)
             return detection_loss
+        elif self.mode == 'united':
+            detection_loss = self.detectionLoss(y_true_cls, y_pred_cls,
+                                                y_true_geo, y_pred_geo, training_mask)
+            recognition_loss = self.recogitionLoss(y_true_recog, y_pred_recog)
+
+            return detection_loss+ recognition_loss

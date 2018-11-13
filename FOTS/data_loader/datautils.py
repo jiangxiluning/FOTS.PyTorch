@@ -4,7 +4,7 @@ import glob as gb
 import numpy as np
 import cv2
 import csv
-import pathlib
+
 from shapely.geometry import Polygon
 
 
@@ -704,12 +704,8 @@ def collate_fn(batch):
     score_maps = torch.stack(score_maps, 0)
     geo_maps = torch.stack(geo_maps, 0)
     training_masks = torch.stack(training_masks, 0)
-    # TODO: need to implement the transformation for transcript as we need to compute ctc loss
 
     return images, score_maps, geo_maps, training_masks, transcripts, boxes
-
-
-
 
 
 ## img = bs * 512 * 512 *3

@@ -3,8 +3,8 @@ import torch
 import logging
 import pathlib
 import traceback
-from model.model import FOTSModel
-from utils.bbox import Toolbox
+from FOTS.model.model import FOTSModel
+from FOTS.utils.bbox import Toolbox
 
 logging.basicConfig(level=logging.DEBUG, format='')
 

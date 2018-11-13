@@ -1,4 +1,3 @@
-from roi_align.crop_and_resize import CropAndResizeFunction
 from torch import nn
 import cv2
 import numpy as np
@@ -19,7 +18,7 @@ class ROIRotate(nn.Module):
 
         :param feature_map:  N * 128 * 128 * 32
         :param boxes: list of box array , box on image with 512 x 512
-        :return:
+        :return: N * H * W * C
         '''
 
         max_width = 0
@@ -28,7 +27,7 @@ class ROIRotate(nn.Module):
         feature_map = feature_map.permute(0, 2, 3, 1).detach().numpy()
         _, _, _ , channels = feature_map.shape
         for img_index in range(len(feature_map)):
-            feature = feature_map[img_index]  # c * h * w
+            feature = feature_map[img_index]  # B * H * W * C
 
             for box in boxes[img_index]:
                 x1, y1, x2, y2, _, _, x4, y4 = box[:8] / 4 # 521 -> 128
@@ -69,9 +68,13 @@ class ROIRotate(nn.Module):
             padded_part = np.zeros((self.height, padded_width, channels))
             cropped_images_padded[i] = np.concatenate([cropped_images[i], padded_part], axis=1)
 
+        lengths = np.array([max_width] * len(boxes_padded_width)) - np.array(boxes_padded_width)
+        indices = np.argsort(lengths) # sort images by its width cause pack padded tensor needs it
+        indices = indices[::-1].copy() # descending order
+        lengths = lengths[indices]
+        cropped_images_padded = cropped_images_padded[indices]
 
-
-        return cropped_images_padded, boxes_padded_width
+        return cropped_images_padded, lengths, indices
 
 
 

@@ -1,9 +1,6 @@
-import numpy as np
-import torch
 import torch.utils.data as torchdata
-from torchvision import datasets, transforms
 
-from base import BaseDataLoader
+from ..base import BaseDataLoader
 from .dataset import SynthTextDataset
 from .datautils import collate_fn
 

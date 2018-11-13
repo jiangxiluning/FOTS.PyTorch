@@ -3,8 +3,9 @@ from .datautils import *
 import scipy.io as sio
 import logging
 import numpy as np
-from itertools import  compress
+from itertools import compress
 import traceback
+import pathlib
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +142,7 @@ class ICDAR(Dataset):
                 im, text_polys, text_tags, selected_poly = crop_area(im, text_polys, text_tags, crop_background = True)
                 if text_polys.shape[0] > 0:
                     # cannot find background
-                    raise TypeError('cannot find background')
+                    raise RuntimeError('cannot find background')
                 # pad and resize image
                 new_h, new_w, _ = im.shape
                 max_h_w_i = np.max([new_h, new_w, input_size])
@@ -156,7 +157,7 @@ class ICDAR(Dataset):
             else:
                 im, text_polys, text_tags, selected_poly = crop_area(im, text_polys, text_tags, crop_background = False)
                 if text_polys.shape[0] == 0:
-                    raise TypeError('cannot find background')
+                    raise RuntimeError('cannot find background')
                 h, w, _ = im.shape
 
                 # pad the image to the training input size or the longer side of image
@@ -187,6 +188,9 @@ class ICDAR(Dataset):
             mask = [not (word == '*' or word == '###') for word in transcripts]
             transcripts = list(compress(transcripts, mask))
             text_polys = text_polys[mask].reshape((-1, 8))
+
+            if len(transcripts) == 0:
+                raise RuntimeError('No text found.')
 
             return images, score_maps, geo_maps, training_masks, transcripts, text_polys
         else:

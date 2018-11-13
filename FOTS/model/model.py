@@ -1,10 +1,11 @@
-from base import BaseModel
+from ..base import BaseModel
 import torch.nn as nn
 import torch
 import math
-import torch.nn.functional as F
 from .modules import shared_conv
 from .modules.roi_rotate import ROIRotate
+from .modules.crnn import CRNN
+from .keys import keys
 import pretrainedmodels as pm
 
 
@@ -16,7 +17,9 @@ class FOTSModel(BaseModel):
 
         bbNet =  pm.__dict__['resnet50'](pretrained='imagenet') # resnet50 in paper
         self.sharedConv = shared_conv.SharedConv(bbNet)
-        self.recognizer = Recognizer()
+
+        nclass = len(keys) + 1
+        self.recognizer = Recognizer(nclass).double()
         self.detector = Detector()
         self.roirotate = ROIRotate()
 
@@ -27,29 +30,38 @@ class FOTSModel(BaseModel):
         :return:
         '''
         image, boxes = input
-        score_map, geo_map, recog_map = None, None, None
+        if image.is_cuda:
+            device = image.get_device()
+        else:
+            device = torch.device('cpu')
+
+        score_map, geo_map, preds, actual_length, indices = None, None, None, None, None
         feature_map = self.sharedConv.forward(image)
         if self.mode == 'detection':
             score_map, geo_map = self.detector(feature_map)
 
         if self.mode == 'recognition':
-            recog_map = self.recognizer(feature_map)
+            preds, actual_length, indices = self.recognizer(feature_map)
 
         if self.mode == 'united':
             score_map, geo_map = self.detector(feature_map)
-            crops, padded_width = self.roirotate(feature_map, boxes)
-            recog_map = self.recognizer(crops)
+            rois, lengths, indices = self.roirotate(feature_map, boxes)
+            rois = torch.tensor(rois).to(device)
+            rois = rois.permute(0, 3, 1, 2)
+            lengths = torch.tensor(lengths).to(device)
+            preds, actual_length = self.recognizer(rois, lengths)
 
-        return score_map, geo_map, recog_map
+        return score_map, geo_map, (preds, actual_length), indices
 
 
 class Recognizer(nn.Module):
 
-    def __init__(self):
+    def __init__(self, nclass):
         super().__init__()
+        self.crnn = CRNN(8, 32, nclass, 256)
 
-    def forward(self, *input):
-        return None
+    def forward(self, rois, lengths):
+        return self.crnn(rois, lengths)
 
 
 class Detector(nn.Module):

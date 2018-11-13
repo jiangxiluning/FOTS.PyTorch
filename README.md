@@ -4,6 +4,8 @@
  - detection branch (verified on the training set, It works!)
  - eval
  - multi-gpu training
+ - crnn (not be verified)
+ - reasonable project structure
 
 # Introduction
 
@@ -18,6 +20,9 @@ This is a PyTorch implementation of [FOTS](https://arxiv.org/abs/1801.01671).
   ```
   Answer: Yes, the backbone network is used as a feature extractor, so we do not need to modify the weights.
  
+- For crnn, the padding size should all be 1, since the width may less than the kernel size, and the outputs' sizes of 
+conv layer in CRNN are all the same? 
+
 # Instruction
 
 ## Requirements

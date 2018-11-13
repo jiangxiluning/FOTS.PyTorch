@@ -4,7 +4,7 @@ import json
 import logging
 import torch
 import torch.optim as optim
-from utils.util import ensure_dir
+from ..utils.util import ensure_dir
 
 
 class BaseTrainer:

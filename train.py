@@ -4,15 +4,15 @@ import logging
 import os
 import pathlib
 
-from data_loader import SynthTextDataLoaderFactory
-from data_loader import OCRDataLoaderFactory
-from data_loader.dataset import ICDAR
-from logger import Logger
-from model.loss import *
-from model.model import *
-from model.metric import *
-from trainer import Trainer
-from utils.bbox import Toolbox
+from FOTS.data_loader import SynthTextDataLoaderFactory
+from FOTS.data_loader import OCRDataLoaderFactory
+from FOTS.data_loader import ICDAR
+from FOTS.logger import Logger
+from FOTS.model.model import *
+from FOTS.model.loss import *
+from FOTS.model.metric import *
+from FOTS.trainer import Trainer
+from FOTS.utils.bbox import Toolbox
 
 logging.basicConfig(level=logging.DEBUG, format='')
 

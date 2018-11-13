@@ -1,7 +1,9 @@
 import numpy as np
 import torch
-from base import BaseTrainer
-from utils.bbox import Toolbox
+from ..base import BaseTrainer
+from ..utils.bbox import Toolbox
+from ..model.keys import keys
+from ..utils.util import strLabelConverter
 
 class Trainer(BaseTrainer):
     """
@@ -21,6 +23,7 @@ class Trainer(BaseTrainer):
         self.valid = True if self.valid_data_loader is not None else False
         self.log_step = int(np.sqrt(self.batch_size))
         self.toolbox = toolbox
+        self.labelConverter = strLabelConverter(keys)
 
     def _to_tensor(self, *tensors):
         t = []
@@ -60,12 +63,20 @@ class Trainer(BaseTrainer):
         for batch_idx, gt in enumerate(self.data_loader):
             img, score_map, geo_map, training_mask, transcripts, boxes= gt
             img, score_map, geo_map, training_mask = self._to_tensor(img, score_map, geo_map, training_mask)
-            recog_map = None
+
 
             self.optimizer.zero_grad()
-            pred_score_map, pred_geo_map, pred_recog_map = self.model(img, boxes)
+            pred_score_map, pred_geo_map, pred_recog, indices = self.model(img, boxes)
 
-            loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, pred_recog_map, recog_map, training_mask)
+            transcripts = [w for t in transcripts for w in t]
+            boxes = [b for bb in boxes for b in bb]
+
+            transcripts = np.take(transcripts, indices)# take labels by the order of rois' width
+            boxes = np.take(boxes, indices, axis=0)
+            labels, label_lengths = self.labelConverter.encode(transcripts)
+            recog = (labels, label_lengths)
+
+            loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, recog, pred_recog, training_mask)
             loss.backward()
             self.optimizer.step()
 
