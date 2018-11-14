@@ -66,7 +66,7 @@ class Trainer(BaseTrainer):
 
 
             self.optimizer.zero_grad()
-            pred_score_map, pred_geo_map, pred_recog, indices = self.model(img, boxes)
+            pred_score_map, pred_geo_map, pred_recog, pred_boxes, indices = self.model(img, boxes)
 
             transcripts = [w for t in transcripts for w in t]
             boxes = [b for bb in boxes for b in bb]
@@ -85,6 +85,7 @@ class Trainer(BaseTrainer):
 
             total_metrics += 0
 
+            break
             if self.verbosity >= 2 and batch_idx % self.log_step == 0:
                 self.logger.info('Train Epoch: {} [{}/{} ({:.0f}%)] Loss: {:.6f}'.format(
                     epoch,
@@ -118,19 +119,22 @@ class Trainer(BaseTrainer):
         total_val_metrics = np.zeros(len(self.metrics))
         with torch.no_grad():
             for batch_idx, gt in enumerate(self.valid_data_loader):
-                img, score_map, geo_map, training_mask, transcript = gt
+                img, score_map, geo_map, training_mask, transcripts, boxes = gt
                 img, score_map, geo_map, training_mask = self._to_tensor(img, score_map, geo_map, training_mask)
-                recog_map = None
 
-                pred_score_map, pred_geo_map, pred_recog_map = self.model(img)
+                pred_score_map, pred_geo_map, pred_recog, pred_boxes, indices = self.model(img, None)
 
-                loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, pred_recog_map, recog_map,
-                                 training_mask)
+                transcripts = [w for t in transcripts for w in t]
+                boxes = [b for bb in boxes for b in bb]
 
+                transcripts = np.take(transcripts, indices)  # take labels by the order of rois' width
+                boxes = np.take(boxes, indices, axis = 0)
+                labels, label_lengths = self.labelConverter.encode(transcripts)
+                recog = (labels, label_lengths)
+
+                loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, recog, pred_recog, training_mask)
                 total_val_loss += loss.item()
 
-                output = (pred_score_map, pred_geo_map, pred_recog_map)
-                target = (score_map, geo_map, recog_map)
                 #total_val_metrics += self._eval_metrics(output, target, training_mask) #TODO: should add AP metric
 
         return {

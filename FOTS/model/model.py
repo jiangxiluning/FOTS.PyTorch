@@ -7,6 +7,7 @@ from .modules.roi_rotate import ROIRotate
 from .modules.crnn import CRNN
 from .keys import keys
 import pretrainedmodels as pm
+from ..utils.bbox import Toolbox
 
 
 class FOTSModel(BaseModel):
@@ -35,7 +36,7 @@ class FOTSModel(BaseModel):
         else:
             device = torch.device('cpu')
 
-        score_map, geo_map, preds, actual_length, indices = None, None, None, None, None
+        score_map, geo_map, preds, actual_length, pred_boxes, indices = None, None, None, None, None, None
         feature_map = self.sharedConv.forward(image)
         if self.mode == 'detection':
             score_map, geo_map = self.detector(feature_map)
@@ -45,13 +46,30 @@ class FOTSModel(BaseModel):
 
         if self.mode == 'united':
             score_map, geo_map = self.detector(feature_map)
-            rois, lengths, indices = self.roirotate(feature_map, boxes)
+
+
+            score = score_map.permute(0, 2, 3, 1)
+            geometry = geo_map.permute(0, 2, 3, 1)
+            score = score.data.cpu().numpy()
+            geometry = geometry.data.cpu().numpy()
+
+            timer = {'net': 0, 'restore': 0, 'nms': 0}
+            pred_boxes, timer = Toolbox.detect(score_map=score, geo_map=geometry, timer=timer)
+
+            if self.training:
+                rois, lengths, indices = self.roirotate(feature_map, boxes)
+            else:
+                if not pred_boxes:
+                    return score_map, geo_map, (preds, actual_length), pred_boxes, indices
+
+                rois, lengths, indices = self.roirotate(feature_map, pred_boxes)
+
             rois = torch.tensor(rois).to(device)
             rois = rois.permute(0, 3, 1, 2)
             lengths = torch.tensor(lengths).to(device)
             preds, actual_length = self.recognizer(rois, lengths)
 
-        return score_map, geo_map, (preds, actual_length), indices
+        return score_map, geo_map, (preds, actual_length), pred_boxes, indices
 
 
 class Recognizer(nn.Module):

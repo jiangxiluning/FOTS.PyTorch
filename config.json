@@ -4,7 +4,7 @@
     "gpus": [0, 1, 2, 3],
     "data_loader": {
         "dataset":"icdar2015",
-        "data_dir": "/Users/luning/Dev/data/icdar2015/4.4/training",
+        "data_dir": "/Users/luning/Dev/data/icdar/icdar2015/4.4/training",
         "batch_size": 3,
         "shuffle": true,
         "workers": 0

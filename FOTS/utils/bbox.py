@@ -163,7 +163,7 @@ class Toolbox:
         return im, (ratio_h, ratio_w)
 
     @staticmethod
-    def detect(score_map, geo_map, timer, score_map_thresh = 0.5, box_thresh = 0.1, nms_thres = 0.2):
+    def detect(score_map, geo_map, timer, score_map_thresh = 0.8, box_thresh = 0.1, nms_thres = 0.2):
         '''1e-5
         restore text boxes from score map and geo map
         :param score_map:
@@ -304,15 +304,15 @@ class Toolbox:
 
         timer = {'net': 0, 'restore': 0, 'nms': 0}
         start = time.time()
-        score, geometry = model(im_resized)
+        score, geometry, preds, boxes, indices = model(im_resized, None)
         timer['net'] = time.time() - start
 
-        score = score.permute(0, 2, 3, 1)
-        geometry = geometry.permute(0, 2, 3, 1)
-        score = score.data.cpu().numpy()
-        geometry = geometry.data.cpu().numpy()
-
-        boxes, timer = Toolbox.detect(score_map=score, geo_map=geometry, timer=timer)
+        # score = score.permute(0, 2, 3, 1)
+        # geometry = geometry.permute(0, 2, 3, 1)
+        # score = score.data.cpu().numpy()
+        # geometry = geometry.data.cpu().numpy()
+        #
+        # boxes, timer = Toolbox.detect(score_map=score, geo_map=geometry, timer=timer)
         print('imgpath{} : net {:.0f}ms, restore {:.0f}ms, nms {:.0f}ms'.format(im_fn, timer['net'] * 1000,
                                                                                 timer['restore'] * 1000,
                                                                                 timer['nms'] * 1000))
