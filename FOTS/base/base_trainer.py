@@ -4,6 +4,7 @@ import json
 import logging
 import torch
 import torch.optim as optim
+from tensorboardX import SummaryWriter
 from ..utils.util import ensure_dir
 
 
@@ -21,6 +22,7 @@ class BaseTrainer:
         self.epochs = config['trainer']['epochs']
         self.save_freq = config['trainer']['save_freq']
         self.verbosity = config['trainer']['verbosity']
+        self.summyWriter = SummaryWriter()
 
         if torch.cuda.is_available():
             if config['cuda']:
@@ -101,6 +103,10 @@ class BaseTrainer:
                 self.lr_scheduler.step(epoch)
                 lr = self.lr_scheduler.get_lr()[0]
                 self.logger.info('New Learning Rate: {:.8f}'.format(lr))
+
+            self.summyWriter.add_scalars('Train', {'train_loss': result['loss'],
+                                                   'val_loss': result['val_loss']}, epoch)
+        self.summyWriter.close()
 
     def _log_memory_useage(self):
         if not self.with_cuda: return

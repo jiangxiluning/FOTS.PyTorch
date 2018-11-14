@@ -86,6 +86,8 @@ class FOTSLoss(nn.Module):
         elif self.mode == 'united':
             detection_loss = self.detectionLoss(y_true_cls, y_pred_cls,
                                                 y_true_geo, y_pred_geo, training_mask)
-            recognition_loss = self.recogitionLoss(y_true_recog, y_pred_recog)
-
-            return detection_loss+ recognition_loss
+            if y_true_recog:
+                recognition_loss = self.recogitionLoss(y_true_recog, y_pred_recog)
+                return detection_loss + recognition_loss
+            else:
+                return detection_loss

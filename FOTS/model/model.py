@@ -50,8 +50,8 @@ class FOTSModel(BaseModel):
 
             score = score_map.permute(0, 2, 3, 1)
             geometry = geo_map.permute(0, 2, 3, 1)
-            score = score.data.cpu().numpy()
-            geometry = geometry.data.cpu().numpy()
+            score = score.detach().cpu().numpy()
+            geometry = geometry.detach().cpu().numpy()
 
             timer = {'net': 0, 'restore': 0, 'nms': 0}
             pred_boxes, timer = Toolbox.detect(score_map=score, geo_map=geometry, timer=timer)

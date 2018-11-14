@@ -6,6 +6,8 @@
  - multi-gpu training
  - crnn (not be verified)
  - reasonable project structure
+ - val loss
+ - tensorboardx visualization
 
 # Introduction
 

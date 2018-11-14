@@ -85,7 +85,6 @@ class Trainer(BaseTrainer):
 
             total_metrics += 0
 
-            break
             if self.verbosity >= 2 and batch_idx % self.log_step == 0:
                 self.logger.info('Train Epoch: {} [{}/{} ({:.0f}%)] Loss: {:.6f}'.format(
                     epoch,
@@ -124,13 +123,15 @@ class Trainer(BaseTrainer):
 
                 pred_score_map, pred_geo_map, pred_recog, pred_boxes, indices = self.model(img, None)
 
-                transcripts = [w for t in transcripts for w in t]
-                boxes = [b for bb in boxes for b in bb]
+                recog = None
+                if pred_boxes:# No box is detected
+                    transcripts = [w for t in transcripts for w in t]
+                    boxes = [b for bb in boxes for b in bb]
 
-                transcripts = np.take(transcripts, indices)  # take labels by the order of rois' width
-                boxes = np.take(boxes, indices, axis = 0)
-                labels, label_lengths = self.labelConverter.encode(transcripts)
-                recog = (labels, label_lengths)
+                    transcripts = np.take(transcripts, indices)  # take labels by the order of rois' width
+                    boxes = np.take(boxes, indices, axis = 0)
+                    labels, label_lengths = self.labelConverter.encode(transcripts)
+                    recog = (labels, label_lengths)
 
                 loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, recog, pred_recog, training_mask)
                 total_val_loss += loss.item()
