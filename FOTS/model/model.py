@@ -7,22 +7,76 @@ from .modules.roi_rotate import ROIRotate
 from .modules.crnn import CRNN
 from .keys import keys
 import pretrainedmodels as pm
+import torch.optim as optim
 from ..utils.bbox import Toolbox
 
 
-class FOTSModel(BaseModel):
+class FOTSModel:
 
     def __init__(self, config):
-        super().__init__(config)
+
         self.mode = config['mode']
 
         bbNet =  pm.__dict__['resnet50'](pretrained='imagenet') # resnet50 in paper
-        self.sharedConv = shared_conv.SharedConv(bbNet)
+        self.sharedConv = shared_conv.SharedConv(bbNet, config)
 
         nclass = len(keys) + 1
-        self.recognizer = Recognizer(nclass).double()
-        self.detector = Detector()
+        self.recognizer = Recognizer(nclass, config).double()
+        self.detector = Detector(config)
         self.roirotate = ROIRotate()
+
+    def parallelize(self):
+        self.sharedConv = torch.nn.DataParallel(self.sharedConv)
+        self.recognizer = torch.nn.DataParallel(self.recognizer)
+        self.detector = torch.nn.DataParallel(self.detector)
+
+    def to(self, device):
+        self.sharedConv = self.sharedConv.to(device)
+        self.detector = self.detector.to(device)
+        self.recognizer = self.recognizer.to(device)
+
+    def summary(self):
+        self.sharedConv.summary()
+        self.detector.summary()
+        self.recognizer.summary()
+
+    def optimize(self, optimizer_type, params):
+        optimizer = getattr(optim, optimizer_type)(
+            [{
+                'params': self.sharedConv.parameters(),
+                'params': self.detector.parameters(),
+                'params': self.recognizer.parameters()
+            }],
+            **params
+        )
+        return optimizer
+
+    def train(self):
+        self.sharedConv.train()
+        self.detector.train()
+        self.recognizer.train()
+
+    def eval(self):
+        self.sharedConv.eval()
+        self.detector.eval()
+        self.recognizer.eval()
+
+    def state_dict(self):
+        sd = {
+            '0': self.sharedConv.state_dict(),
+            '1': self.detector.state_dict(),
+            '2': self.recognizer.state_dict()
+        }
+        return sd
+
+    def load_state_dict(self, sd):
+        self.sharedConv.load_state_dict(sd['0'])
+        self.detector.load_state_dict(sd['1'])
+        self.recognizer.load_state_dict(sd['2'])
+
+    @property
+    def training(self):
+        return self.sharedConv.training and self.detector.training and self.recognizer.training
 
     def forward(self, *input):
         '''
@@ -72,20 +126,20 @@ class FOTSModel(BaseModel):
         return score_map, geo_map, (preds, actual_length), pred_boxes, indices
 
 
-class Recognizer(nn.Module):
+class Recognizer(BaseModel):
 
-    def __init__(self, nclass):
-        super().__init__()
+    def __init__(self, nclass, config):
+        super().__init__(config)
         self.crnn = CRNN(8, 32, nclass, 256)
 
     def forward(self, rois, lengths):
         return self.crnn(rois, lengths)
 
 
-class Detector(nn.Module):
+class Detector(BaseModel):
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, config):
+        super().__init__(config)
         self.scoreMap = nn.Conv2d(32, 1, kernel_size = 1)
         self.geoMap = nn.Conv2d(32, 4, kernel_size = 1)
         self.angleMap = nn.Conv2d(32, 1, kernel_size = 1)

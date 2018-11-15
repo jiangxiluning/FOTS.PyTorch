@@ -677,7 +677,7 @@ def image_label(txt_root, image_list, img_name, index,
 
 
 def collate_fn(batch):
-    img, score_map, geo_map, training_mask, transcripts, boxes = zip(*batch)
+    imagePaths, img, score_map, geo_map, training_mask, transcripts, boxes = zip(*batch)
     bs = len(score_map)
     images = []
     score_maps = []
@@ -705,7 +705,7 @@ def collate_fn(batch):
     geo_maps = torch.stack(geo_maps, 0)
     training_masks = torch.stack(training_masks, 0)
 
-    return images, score_maps, geo_maps, training_masks, transcripts, boxes
+    return imagePaths, images, score_maps, geo_maps, training_masks, transcripts, boxes
 
 
 ## img = bs * 512 * 512 *3

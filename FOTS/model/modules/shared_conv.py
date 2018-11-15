@@ -2,17 +2,18 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 import math
+from ...base.base_model import BaseModel
 
 SPEEDUP_SCALE = 512
 
 
-class SharedConv(nn.Module):
+class SharedConv(BaseModel):
     '''
     sharded convolutional layers
     '''
 
-    def __init__(self, bbNet: nn.Module):
-        super(SharedConv, self).__init__()
+    def __init__(self, bbNet: nn.Module, config):
+        super(SharedConv, self).__init__(config)
         self.backbone = bbNet
         self.backbone.eval()
         # backbone as feature extractor

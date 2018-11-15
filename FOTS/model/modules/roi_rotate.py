@@ -24,7 +24,7 @@ class ROIRotate(nn.Module):
         max_width = 0
         boxes_width = []
         cropped_images = []
-        feature_map = feature_map.permute(0, 2, 3, 1).detach().numpy()
+        feature_map = feature_map.permute(0, 2, 3, 1).detach().cpu().numpy()
         _, _, _ , channels = feature_map.shape
         for img_index in range(len(feature_map)):
             feature = feature_map[img_index]  # B * H * W * C

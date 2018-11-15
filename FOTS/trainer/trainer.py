@@ -61,37 +61,41 @@ class Trainer(BaseTrainer):
         total_loss = 0
         total_metrics = np.zeros(len(self.metrics))
         for batch_idx, gt in enumerate(self.data_loader):
-            img, score_map, geo_map, training_mask, transcripts, boxes= gt
-            img, score_map, geo_map, training_mask = self._to_tensor(img, score_map, geo_map, training_mask)
+            try:
+                imagePaths, img, score_map, geo_map, training_mask, transcripts, boxes= gt
+                img, score_map, geo_map, training_mask = self._to_tensor(img, score_map, geo_map, training_mask)
 
 
-            self.optimizer.zero_grad()
-            pred_score_map, pred_geo_map, pred_recog, pred_boxes, indices = self.model(img, boxes)
+                self.optimizer.zero_grad()
+                pred_score_map, pred_geo_map, pred_recog, pred_boxes, indices = self.model.forward(img, boxes)
 
-            transcripts = [w for t in transcripts for w in t]
-            boxes = [b for bb in boxes for b in bb]
+                transcripts = [w for t in transcripts for w in t]
+                boxes = [b for bb in boxes for b in bb]
 
-            transcripts = np.take(transcripts, indices)# take labels by the order of rois' width
-            boxes = np.take(boxes, indices, axis=0)
-            labels, label_lengths = self.labelConverter.encode(transcripts)
-            recog = (labels, label_lengths)
+                transcripts = np.take(transcripts, indices)# take labels by the order of rois' width
+                boxes = np.take(boxes, indices, axis=0)
+                labels, label_lengths = self.labelConverter.encode(transcripts)
+                recog = (labels, label_lengths)
 
-            loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, recog, pred_recog, training_mask)
-            loss.backward()
-            self.optimizer.step()
+                loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, recog, pred_recog, training_mask)
+                loss.backward()
+                self.optimizer.step()
 
-            total_loss += loss.item()
-            #total_metrics += self._eval_metrics(output, target)
+                total_loss += loss.item()
+                #total_metrics += self._eval_metrics(output, target)
 
-            total_metrics += 0
-
-            if self.verbosity >= 2 and batch_idx % self.log_step == 0:
-                self.logger.info('Train Epoch: {} [{}/{} ({:.0f}%)] Loss: {:.6f}'.format(
-                    epoch,
-                    batch_idx * self.data_loader.batch_size,
-                    len(self.data_loader) * self.data_loader.batch_size,
-                    100.0 * batch_idx / len(self.data_loader),
-                    loss.item()))
+                total_metrics += 0
+                break
+                if self.verbosity >= 2 and batch_idx % self.log_step == 0:
+                    self.logger.info('Train Epoch: {} [{}/{} ({:.0f}%)] Loss: {:.6f}'.format(
+                        epoch,
+                        batch_idx * self.data_loader.batch_size,
+                        len(self.data_loader) * self.data_loader.batch_size,
+                        100.0 * batch_idx / len(self.data_loader),
+                        loss.item()))
+            except:
+                print(imagePaths)
+                raise
 
         log = {
             'loss': total_loss / len(self.data_loader),
@@ -118,25 +122,29 @@ class Trainer(BaseTrainer):
         total_val_metrics = np.zeros(len(self.metrics))
         with torch.no_grad():
             for batch_idx, gt in enumerate(self.valid_data_loader):
-                img, score_map, geo_map, training_mask, transcripts, boxes = gt
-                img, score_map, geo_map, training_mask = self._to_tensor(img, score_map, geo_map, training_mask)
+                try:
+                    imagePaths, img, score_map, geo_map, training_mask, transcripts, boxes = gt
+                    img, score_map, geo_map, training_mask = self._to_tensor(img, score_map, geo_map, training_mask)
 
-                pred_score_map, pred_geo_map, pred_recog, pred_boxes, indices = self.model(img, None)
+                    pred_score_map, pred_geo_map, pred_recog, pred_boxes, indices = self.model.forward(img, None)
 
-                recog = None
-                if pred_boxes:# No box is detected
-                    transcripts = [w for t in transcripts for w in t]
-                    boxes = [b for bb in boxes for b in bb]
+                    recog = None
+                    if pred_boxes:# No box is detected
+                        transcripts = [w for t in transcripts for w in t]
+                        boxes = [b for bb in boxes for b in bb]
 
-                    transcripts = np.take(transcripts, indices)  # take labels by the order of rois' width
-                    boxes = np.take(boxes, indices, axis = 0)
-                    labels, label_lengths = self.labelConverter.encode(transcripts)
-                    recog = (labels, label_lengths)
+                        transcripts = np.take(transcripts, indices)  # take labels by the order of rois' width
+                        boxes = np.take(boxes, indices, axis = 0)
+                        labels, label_lengths = self.labelConverter.encode(transcripts)
+                        recog = (labels, label_lengths)
 
-                loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, recog, pred_recog, training_mask)
-                total_val_loss += loss.item()
-
-                #total_val_metrics += self._eval_metrics(output, target, training_mask) #TODO: should add AP metric
+                    loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, recog, pred_recog, training_mask)
+                    total_val_loss += loss.item()
+                    break
+                    #total_val_metrics += self._eval_metrics(output, target, training_mask) #TODO: should add AP metric
+                except:
+                    print(imagePaths)
+                    raise
 
         return {
             'val_loss': total_val_loss / len(self.valid_data_loader),

@@ -103,7 +103,6 @@ class ICDAR(Dataset):
         try:
             return self.__transform((imageName, bboxes, transcripts))
         except Exception as e:
-            print(traceback.print_exc())
             return self.__getitem__(torch.tensor(np.random.randint(0, len(self))))
 
     def __len__(self):
@@ -192,7 +191,7 @@ class ICDAR(Dataset):
             if len(transcripts) == 0:
                 raise RuntimeError('No text found.')
 
-            return images, score_maps, geo_maps, training_masks, transcripts, text_polys
+            return imagePath, images, score_maps, geo_maps, training_masks, transcripts, text_polys
         else:
             raise TypeError('Number of bboxes is inconsist with number of transcripts ')
 

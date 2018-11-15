@@ -30,7 +30,7 @@ class BaseTrainer:
                 self.gpus = {i: item for i, item in enumerate(self.config['gpus'])}
                 device = 'cuda'
                 if torch.cuda.device_count() > 1 and len(self.gpus) > 1:
-                    self.model = torch.nn.DataParallel(self.model)
+                    self.model.parallelize()
                 torch.cuda.empty_cache()
             else:
                 self.with_cuda = False
@@ -42,14 +42,15 @@ class BaseTrainer:
             device = 'cpu'
 
         self.device = torch.device(device)
-        self.model = self.model.to(self.device)
+        self.model.to(self.device)
 
         self.logger.debug('Model is initialized.')
         self._log_memory_useage()
 
         self.train_logger = train_logger
-        self.optimizer = getattr(optim, config['optimizer_type'])(model.parameters(),
-                                                                  **config['optimizer'])
+
+        self.optimizer = self.model.optimize(config['optimizer_type'], config['optimizer'])
+
         self.lr_scheduler = getattr(
             optim.lr_scheduler,
             config['lr_scheduler_type'], None)

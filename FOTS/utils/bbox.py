@@ -304,7 +304,7 @@ class Toolbox:
 
         timer = {'net': 0, 'restore': 0, 'nms': 0}
         start = time.time()
-        score, geometry, preds, boxes, indices = model(im_resized, None)
+        score, geometry, preds, boxes, indices = model.forward(im_resized, None)
         timer['net'] = time.time() - start
 
         # score = score.permute(0, 2, 3, 1)
