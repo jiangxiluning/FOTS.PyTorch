@@ -58,7 +58,7 @@ class RecognitionLoss(nn.Module):
 
     def forward(self, *input):
         gt, pred = input[0], input[1]
-        loss = self.ctc_loss(pred[0].float(), pred[1].int(), gt[0].int(), gt[1].int())
+        loss = self.ctc_loss(pred[0].float(), pred[1].int().cpu(), gt[0].int(), gt[1].int().cpu())
         return loss
 
 
@@ -88,6 +88,6 @@ class FOTSLoss(nn.Module):
                                                 y_true_geo, y_pred_geo, training_mask)
             if y_true_recog:
                 recognition_loss = self.recogitionLoss(y_true_recog, y_pred_recog)
-                return detection_loss + recognition_loss
+                return detection_loss + recognition_loss.to(detection_loss.device)
             else:
                 return detection_loss

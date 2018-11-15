@@ -121,9 +121,9 @@ class FOTSModel:
             rois = torch.tensor(rois).to(device)
             rois = rois.permute(0, 3, 1, 2)
             lengths = torch.tensor(lengths).to(device)
-            preds, actual_length = self.recognizer(rois, lengths)
+            preds = self.recognizer(rois, lengths)
 
-        return score_map, geo_map, (preds, actual_length), pred_boxes, indices
+        return score_map, geo_map, (preds, lengths), pred_boxes, indices
 
 
 class Recognizer(BaseModel):

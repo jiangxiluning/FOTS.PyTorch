@@ -9,16 +9,18 @@ class BidirectionalLSTM(nn.Module):
         self.embedding = nn.Linear(nHidden * 2, nOut)
 
     def forward(self, input, lengths):
+        self.rnn.flatten_parameters()
+        total_length = input.size(0)
         packed_input = torch.nn.utils.rnn.pack_padded_sequence(input, lengths)
         recurrent, _ = self.rnn(packed_input)  # [T, b, h * 2]
-        padded_input, actual_length = torch.nn.utils.rnn.pad_packed_sequence(recurrent)
+        padded_input, _ = torch.nn.utils.rnn.pad_packed_sequence(recurrent, total_length=total_length)
 
         T, b, h = padded_input.size()
         t_rec = padded_input.view(T * b, h)
         output = self.embedding(t_rec)  # [T * b, nOut]
         output = output.view(T, b, -1)
 
-        return output, actual_length
+        return output
 
 
 class HeightMaxPool(nn.Module):
@@ -83,6 +85,6 @@ class CRNN(nn.Module):
         conv = conv.permute(2, 0, 1)  # [w, b, c]
 
         # rnn features
-        output, actual_length = self.rnn(conv, lengths)
+        output = self.rnn(conv, lengths)
 
-        return output, actual_length
+        return output

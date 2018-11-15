@@ -85,7 +85,7 @@ class Trainer(BaseTrainer):
                 #total_metrics += self._eval_metrics(output, target)
 
                 total_metrics += 0
-                break
+
                 if self.verbosity >= 2 and batch_idx % self.log_step == 0:
                     self.logger.info('Train Epoch: {} [{}/{} ({:.0f}%)] Loss: {:.6f}'.format(
                         epoch,
@@ -95,7 +95,6 @@ class Trainer(BaseTrainer):
                         loss.item()))
             except:
                 print(imagePaths)
-                raise
 
         log = {
             'loss': total_loss / len(self.data_loader),
@@ -140,11 +139,10 @@ class Trainer(BaseTrainer):
 
                     loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, recog, pred_recog, training_mask)
                     total_val_loss += loss.item()
-                    break
+
                     #total_val_metrics += self._eval_metrics(output, target, training_mask) #TODO: should add AP metric
                 except:
                     print(imagePaths)
-                    raise
 
         return {
             'val_loss': total_val_loss / len(self.valid_data_loader),
