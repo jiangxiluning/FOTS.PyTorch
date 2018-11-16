@@ -10,15 +10,15 @@ class BidirectionalLSTM(nn.Module):
 
     def forward(self, input, lengths):
         self.rnn.flatten_parameters()
-        total_length = input.size(0)
-        packed_input = torch.nn.utils.rnn.pack_padded_sequence(input, lengths)
+        total_length = input.size(1)
+        packed_input = torch.nn.utils.rnn.pack_padded_sequence(input, lengths, batch_first=True)
         recurrent, _ = self.rnn(packed_input)  # [T, b, h * 2]
-        padded_input, _ = torch.nn.utils.rnn.pad_packed_sequence(recurrent, total_length=total_length)
+        padded_input, _ = torch.nn.utils.rnn.pad_packed_sequence(recurrent, total_length=total_length, batch_first=True)
 
-        T, b, h = padded_input.size()
-        t_rec = padded_input.view(T * b, h)
+        b, T, h = padded_input.size()
+        t_rec = padded_input.contiguous().view(T * b, h)
         output = self.embedding(t_rec)  # [T * b, nOut]
-        output = output.view(T, b, -1)
+        output = output.view(b, T, -1)
 
         return output
 
@@ -82,7 +82,7 @@ class CRNN(nn.Module):
         # padded_width_after = (lengths - 1 / step).ceil()
 
         conv = conv.squeeze(2)
-        conv = conv.permute(2, 0, 1)  # [w, b, c]
+        conv = conv.permute(0, 2, 1)  # [B, T, C]
 
         # rnn features
         output = self.rnn(conv, lengths)

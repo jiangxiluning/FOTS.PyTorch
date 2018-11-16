@@ -1,6 +1,7 @@
 from torch import nn
 import cv2
 import numpy as np
+import math
 
 class ROIRotate(nn.Module):
 
@@ -37,7 +38,7 @@ class ROIRotate(nn.Module):
 
                 box_h = y4 - y1
                 box_w = x2 - x1
-                width = int(self.height * box_w / box_h)
+                width = math.ceil(self.height * box_w / box_h)
                 max_width = width if width > max_width else max_width
 
                 mapped_x2, mapped_y2 = (width, 0)
