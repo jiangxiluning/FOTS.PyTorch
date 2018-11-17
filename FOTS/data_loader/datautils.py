@@ -450,6 +450,8 @@ def generate_rbox(im_size, polys, tags):
     geo_map = np.zeros((h, w, 5), dtype = np.float32)
     # mask used during traning, to ignore some hard areas
     training_mask = np.ones((h, w), dtype = np.uint8)
+    rectanges = []
+
     for poly_idx, poly_tag in enumerate(zip(polys, tags)):
         poly = poly_tag[0]
         tag = poly_tag[1]
@@ -547,6 +549,7 @@ def generate_rbox(im_size, polys, tags):
 
         rectange = rectangle_from_parallelogram(parallelogram)
         rectange, rotate_angle = sort_rectangle(rectange)
+        rectanges.append(rectange)
 
         p0_rect, p1_rect, p2_rect, p3_rect = rectange
         for y, x in xy_in_poly:
@@ -561,7 +564,7 @@ def generate_rbox(im_size, polys, tags):
             geo_map[y, x, 3] = point_dist_to_line(p3_rect, p0_rect, point)
             # angle
             geo_map[y, x, 4] = rotate_angle
-    return score_map, geo_map, training_mask
+    return score_map, geo_map, training_mask, rectanges
 
 
 def image_label(txt_root, image_list, img_name, index,

@@ -134,6 +134,8 @@ class ICDAR(Dataset):
             im = cv2.resize(im, dsize = None, fx = rd_scale, fy = rd_scale)
             text_polys *= rd_scale
 
+            rectangles = []
+
             # print rd_scale
             # random crop a area from image
             if np.random.rand() < background_ratio:
@@ -175,7 +177,7 @@ class ICDAR(Dataset):
                 text_polys[:, :, 0] *= resize_ratio_3_x
                 text_polys[:, :, 1] *= resize_ratio_3_y
                 new_h, new_w, _ = im.shape
-                score_map, geo_map, training_mask = generate_rbox((new_h, new_w), text_polys, text_tags)
+                score_map, geo_map, training_mask, rectangles = generate_rbox((new_h, new_w), text_polys, text_tags)
 
             # predict 出来的feature map 是 128 * 128， 所以 gt 需要取 /4 步长
             images = im[:, :, ::-1].astype(np.float32)  # bgr -> rgb
@@ -186,12 +188,13 @@ class ICDAR(Dataset):
             transcripts = [transcripts[i] for i in selected_poly]
             mask = [not (word == '*' or word == '###') for word in transcripts]
             transcripts = list(compress(transcripts, mask))
-            text_polys = text_polys[mask].reshape((-1, 8))
+            rectangles = list(compress(rectangles, mask)) # [ [pt1, pt2, pt3, pt3],  ]
 
+            assert len(transcripts) == len(rectangles) # make sure length of transcipts equal to length of boxes
             if len(transcripts) == 0:
                 raise RuntimeError('No text found.')
 
-            return imagePath, images, score_maps, geo_maps, training_masks, transcripts, text_polys
+            return imagePath, images, score_maps, geo_maps, training_masks, transcripts, rectangles
         else:
             raise TypeError('Number of bboxes is inconsist with number of transcripts ')
 

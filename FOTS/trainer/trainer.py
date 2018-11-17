@@ -4,6 +4,7 @@ from ..base import BaseTrainer
 from ..utils.bbox import Toolbox
 from ..model.keys import keys
 from ..utils.util import strLabelConverter
+from ..utils.util import show_box
 
 class Trainer(BaseTrainer):
     """
@@ -65,6 +66,11 @@ class Trainer(BaseTrainer):
                 imagePaths, img, score_map, geo_map, training_mask, transcripts, boxes= gt
                 img, score_map, geo_map, training_mask = self._to_tensor(img, score_map, geo_map, training_mask)
 
+                # import cv2
+                # for i in range(img.shape[0]):
+                #     image = img[i]
+                #     for tt, bb in zip(transcripts[i], boxes[i]):
+                #         show_box(image.permute(1, 2, 0).detach().cpu().numpy()[:,:, ::-1].astype(np.uint8).copy(), bb, tt)
 
                 self.optimizer.zero_grad()
                 pred_score_map, pred_geo_map, pred_recog, pred_boxes, indices = self.model.forward(img, boxes)
@@ -95,6 +101,7 @@ class Trainer(BaseTrainer):
                         loss.item()))
             except:
                 print(imagePaths)
+                raise
 
         log = {
             'loss': total_loss / len(self.data_loader),
@@ -125,6 +132,9 @@ class Trainer(BaseTrainer):
                     imagePaths, img, score_map, geo_map, training_mask, transcripts, boxes = gt
                     img, score_map, geo_map, training_mask = self._to_tensor(img, score_map, geo_map, training_mask)
 
+
+
+
                     pred_score_map, pred_geo_map, pred_recog, pred_boxes, indices = self.model.forward(img, None)
 
                     recog = None
@@ -143,6 +153,7 @@ class Trainer(BaseTrainer):
                     #total_val_metrics += self._eval_metrics(output, target, training_mask) #TODO: should add AP metric
                 except:
                     print(imagePaths)
+                    raise
 
         return {
             'val_loss': total_val_loss / len(self.valid_data_loader),

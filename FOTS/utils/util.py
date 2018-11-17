@@ -1,10 +1,39 @@
 import os
 import torch
 import collections
-
+import cv2
+import numpy as np
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import MinMaxScaler
 def ensure_dir(path):
     if not os.path.exists(path):
         os.makedirs(path)
+
+
+def show_box(image, box, transcirpt, isFeaturemap=False):
+    pts = box.astype(np.int)
+
+    if isFeaturemap: # dimension reduction
+        h, w, c = image.shape
+        pca = PCA(n_components=3)
+        ii = image.reshape(h*w, c)
+        ii = pca.fit_transform(ii)
+
+        for c in range(3):
+            max = np.max(ii[:, c])
+            min = np.min(ii[:, c])
+            x_std = (ii[:, c] - min) / (max - min)
+            ii[:, c] = x_std * 255
+        image = ii.reshape(h, w, -1).astype(np.uint8)
+
+    img = cv2.polylines(image, [pts], True, [150, 200, 200])
+
+    origin = pts[0]
+    font = cv2.FONT_HERSHEY_PLAIN
+    img = cv2.putText(img, transcirpt, (origin[0], origin[1] - 10), font, 0.5, (255, 255, 255))
+
+    cv2.imshow('text', img)
+    cv2.waitKey()
 
 
 class strLabelConverter(object):
@@ -80,3 +109,13 @@ class strLabelConverter(object):
                         t[index:index + l], torch.IntTensor([l]), raw=raw))
                 index += l
             return texts
+
+
+if __name__ == '__main__':
+    image = cv2.imread('/Users/luning/Dev/data/icdar/icdar2015/4.4/training/ch4_training_images/img_1.jpg')
+    import pandas as pd
+    gts = pd.read_csv('/Users/luning/Dev/data/icdar/icdar2015/4.4/training/ch4_training_localization_transcription_gt/gt_img_1.txt', header=None)
+    for index, gt in gts.iterrows():
+        x1, y1, x2, y2, x3, y3, x4, y4 = gt[:8]
+        transcript = gt[8]
+        show_box(image, np.array([(x1, y1), (x2, y2), (x3, y3), (x4, y4)], dtype=np.int), transcript)

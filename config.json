@@ -5,7 +5,7 @@
     "data_loader": {
         "dataset":"icdar2015",
         "data_dir": "/Users/luning/Dev/data/icdar/icdar2015/4.4/training",
-        "batch_size": 3,
+        "batch_size": 1,
         "shuffle": true,
         "workers": 0
     },

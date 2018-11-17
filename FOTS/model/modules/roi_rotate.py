@@ -2,6 +2,7 @@ from torch import nn
 import cv2
 import numpy as np
 import math
+from ...utils.util import show_box
 
 class ROIRotate(nn.Module):
 
@@ -31,13 +32,20 @@ class ROIRotate(nn.Module):
             feature = feature_map[img_index]  # B * H * W * C
 
             for box in boxes[img_index]:
-                x1, y1, x2, y2, _, _, x4, y4 = box[:8] / 4 # 521 -> 128
+                (x1, y1), (x2, y2), (x3, y3), (x4, y4) = box / 4 # 521 -> 128
+
+                #show_box(feature, box / 4, 'ffffff', isFeaturemap=True)
+
+                rotated_rect = cv2.minAreaRect(box / 4)
+                box_w, box_h = rotated_rect[1][0], rotated_rect[1][1]
+
+                if box_w <= box_h:
+                    box_w, box_h = box_h, box_w
 
                 mapped_x1, mapped_y1 = (0, 0)
                 mapped_x4, mapped_y4 = (0, self.height)
 
-                box_h = y4 - y1
-                box_w = x2 - x1
+
                 width = math.ceil(self.height * box_w / box_h)
                 max_width = width if width > max_width else max_width
 
