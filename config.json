@@ -3,8 +3,8 @@
     "cuda": false,
     "gpus": [0, 1, 2, 3],
     "data_loader": {
-        "dataset":"icdar2015",
-        "data_dir": "/Users/luning/Dev/data/icdar/icdar2015/4.4/training",
+        "dataset":"synth800k",
+        "data_dir": "/Users/luning/Dev/data/SynthText/SynthText",
         "batch_size": 1,
         "shuffle": true,
         "workers": 0

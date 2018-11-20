@@ -83,7 +83,8 @@ class Trainer(BaseTrainer):
                 labels, label_lengths = self.labelConverter.encode(transcripts)
                 recog = (labels, label_lengths)
 
-                loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, recog, pred_recog, training_mask)
+                det_loss, reg_loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, recog, pred_recog, training_mask)
+                loss = det_loss + reg_loss
                 loss.backward()
                 self.optimizer.step()
 
@@ -132,9 +133,6 @@ class Trainer(BaseTrainer):
                     imagePaths, img, score_map, geo_map, training_mask, transcripts, boxes = gt
                     img, score_map, geo_map, training_mask = self._to_tensor(img, score_map, geo_map, training_mask)
 
-
-
-
                     pred_score_map, pred_geo_map, pred_recog, pred_boxes, indices = self.model.forward(img, None)
 
                     recog = None
@@ -147,7 +145,8 @@ class Trainer(BaseTrainer):
                         labels, label_lengths = self.labelConverter.encode(transcripts)
                         recog = (labels, label_lengths)
 
-                    loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, recog, pred_recog, training_mask)
+                    det_loss, reg_loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, recog, pred_recog, training_mask)
+                    loss = det_loss + reg_loss
                     total_val_loss += loss.item()
 
                     #total_val_metrics += self._eval_metrics(output, target, training_mask) #TODO: should add AP metric

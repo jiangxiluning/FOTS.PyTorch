@@ -4,7 +4,6 @@ import scipy.io as sio
 import logging
 import numpy as np
 from itertools import compress
-import traceback
 import pathlib
 
 logger = logging.getLogger(__name__)
@@ -232,7 +231,7 @@ class SynthTextDataset(Dataset):
         try:
             return self.__transform((imageName, wordBBoxes, transcripts))
         except:
-            return self.__getitem__(np.random.randint(0, len(self)))
+            return self.__getitem__(torch.tensor(np.random.randint(0, len(self))))
 
     def __len__(self):
         return len(self.imageNames)
@@ -263,14 +262,16 @@ class SynthTextDataset(Dataset):
             im = cv2.resize(im, dsize = None, fx = rd_scale, fy = rd_scale)
             text_polys *= rd_scale
 
+            rectangles = []
+
             # print rd_scale
             # random crop a area from image
             if np.random.rand() < background_ratio:
                 # crop background
-                im, text_polys, text_tags = crop_area(im, text_polys, text_tags, crop_background = True)
-                # if text_polys.shape[0] > 0:
-                #     # cannot find background
-                #     pass
+                im, text_polys, text_tags, selected_poly = crop_area(im, text_polys, text_tags, crop_background = True)
+                if text_polys.shape[0] > 0:
+                    # cannot find background
+                    raise RuntimeError('Cannot find background.')
                 # pad and resize image
                 new_h, new_w, _ = im.shape
                 max_h_w_i = np.max([new_h, new_w, input_size])
@@ -283,9 +284,9 @@ class SynthTextDataset(Dataset):
                 geo_map = np.zeros((input_size, input_size, geo_map_channels), dtype = np.float32)
                 training_mask = np.ones((input_size, input_size), dtype = np.uint8)
             else:
-                im, text_polys, text_tags = crop_area(im, text_polys, text_tags, crop_background = False)
-                # if text_polys.shape[0] == 0:
-                #     pass
+                im, text_polys, text_tags, selected_poly = crop_area(im, text_polys, text_tags, crop_background = False)
+                if text_polys.shape[0] == 0:
+                    raise RuntimeError('Cannot find background.')
                 h, w, _ = im.shape
 
                 # pad the image to the training input size or the longer side of image
@@ -304,7 +305,7 @@ class SynthTextDataset(Dataset):
                 text_polys[:, :, 0] *= resize_ratio_3_x
                 text_polys[:, :, 1] *= resize_ratio_3_y
                 new_h, new_w, _ = im.shape
-                score_map, geo_map, training_mask = generate_rbox((new_h, new_w), text_polys, text_tags)
+                score_map, geo_map, training_mask, rectangles = generate_rbox((new_h, new_w), text_polys, text_tags)
 
             # predict 出来的feature map 是 128 * 128， 所以 gt 需要取 /4 步长
             images = im[:, :, ::-1].astype(np.float32)  # bgr -> rgb
@@ -312,6 +313,13 @@ class SynthTextDataset(Dataset):
             geo_maps = geo_map[::4, ::4, :].astype(np.float32)
             training_masks = training_mask[::4, ::4, np.newaxis].astype(np.float32)
 
-            return images, score_maps, geo_maps, training_masks, (transcripts, text_polys, text_tags)
+            transcripts = [transcripts[i] for i in selected_poly]
+            rectangles = [rectangles[i] for i in selected_poly]
+
+            assert len(transcripts) == len(rectangles)
+            if len(transcripts) == 0:
+                raise RuntimeError('No text found.')
+
+            return imagePath, images, score_maps, geo_maps, training_masks, transcripts, rectangles
         else:
             raise TypeError('Number of bboxes is inconsist with number of transcripts ')
