@@ -63,7 +63,7 @@ class Trainer(BaseTrainer):
         total_metrics = np.zeros(len(self.metrics))
         for batch_idx, gt in enumerate(self.data_loader):
             try:
-                imagePaths, img, score_map, geo_map, training_mask, transcripts, boxes= gt
+                imagePaths, img, score_map, geo_map, training_mask, transcripts, boxes, mapping= gt
                 img, score_map, geo_map, training_mask = self._to_tensor(img, score_map, geo_map, training_mask)
 
                 # import cv2
@@ -73,14 +73,12 @@ class Trainer(BaseTrainer):
                 #         show_box(image.permute(1, 2, 0).detach().cpu().numpy()[:,:, ::-1].astype(np.uint8).copy(), bb, tt)
 
                 self.optimizer.zero_grad()
-                pred_score_map, pred_geo_map, pred_recog, pred_boxes, indices = self.model.forward(img, boxes)
+                pred_score_map, pred_geo_map, pred_recog, pred_boxes, pred_mapping, indices, rois_mask = self.model.forward(img, boxes, mapping)
 
-                transcripts = [w for t in transcripts for w in t]
-                boxes = [b for bb in boxes for b in bb]
-
-                transcripts = np.take(transcripts, indices)# take labels by the order of rois' width
-                boxes = np.take(boxes, indices, axis=0)
-                labels, label_lengths = self.labelConverter.encode(transcripts)
+                transcripts = transcripts[rois_mask == 1][indices]
+                pred_boxes = pred_boxes[rois_mask == 1][indices]
+                pred_mapping = pred_mapping[rois_mask == 1][indices]
+                labels, label_lengths = self.labelConverter.encode(transcripts.tolist())
                 recog = (labels, label_lengths)
 
                 det_loss, reg_loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, recog, pred_recog, training_mask)
@@ -92,7 +90,7 @@ class Trainer(BaseTrainer):
                 #total_metrics += self._eval_metrics(output, target)
 
                 total_metrics += 0
-
+                break
                 if self.verbosity >= 2 and batch_idx % self.log_step == 0:
                     self.logger.info('Train Epoch: {} [{}/{} ({:.0f}%)] Loss: {:.6f} Detection Loss: {:.6f} Recognition Loss:{:.6f}'.format(
                         epoch,
@@ -130,19 +128,17 @@ class Trainer(BaseTrainer):
         with torch.no_grad():
             for batch_idx, gt in enumerate(self.valid_data_loader):
                 try:
-                    imagePaths, img, score_map, geo_map, training_mask, transcripts, boxes = gt
+                    imagePaths, img, score_map, geo_map, training_mask, transcripts, boxes, mapping = gt
                     img, score_map, geo_map, training_mask = self._to_tensor(img, score_map, geo_map, training_mask)
 
-                    pred_score_map, pred_geo_map, pred_recog, pred_boxes, indices = self.model.forward(img, None)
+                    pred_score_map, pred_geo_map, pred_recog, pred_boxes, pred_mapping, indices, rois_mask = self.model.forward(img, boxes, mapping)
 
                     recog = None
-                    if pred_boxes:# No box is detected
-                        transcripts = [w for t in transcripts for w in t]
-                        boxes = [b for bb in boxes for b in bb]
-
-                        transcripts = np.take(transcripts, indices)  # take labels by the order of rois' width
-                        boxes = np.take(boxes, indices, axis = 0)
-                        labels, label_lengths = self.labelConverter.encode(transcripts)
+                    if len(pred_mapping) > 0:
+                        transcripts = transcripts[rois_mask == 1][indices]
+                        pred_mapping = pred_mapping[rois_mask == 1][indices]
+                        pred_boxes = pred_boxes[rois_mask == 1][indices]
+                        labels, label_lengths = self.labelConverter.encode(transcripts.tolist())
                         recog = (labels, label_lengths)
 
                     det_loss, reg_loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, recog, pred_recog, training_mask)

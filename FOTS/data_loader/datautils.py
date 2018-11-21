@@ -549,7 +549,7 @@ def generate_rbox(im_size, polys, tags):
 
         rectange = rectangle_from_parallelogram(parallelogram)
         rectange, rotate_angle = sort_rectangle(rectange)
-        rectanges.append(rectange)
+        rectanges.append(rectange.flatten())
 
         p0_rect, p1_rect, p2_rect, p3_rect = rectange
         for y, x in xy_in_poly:
@@ -708,7 +708,20 @@ def collate_fn(batch):
     geo_maps = torch.stack(geo_maps, 0)
     training_masks = torch.stack(training_masks, 0)
 
-    return imagePaths, images, score_maps, geo_maps, training_masks, transcripts, boxes
+    mapping = []
+    texts = []
+    bboxs = []
+    for index, gt in enumerate(zip(transcripts, boxes)):
+        for t, b in zip(gt[0], gt[1]):
+            mapping.append(index)
+            texts.append(t)
+            bboxs.append(b)
+
+    mapping = np.array(mapping)
+    texts = np.array(texts)
+    bboxs = np.stack(bboxs, axis=0)
+
+    return imagePaths, images, score_maps, geo_maps, training_masks, texts, bboxs, mapping
 
 
 ## img = bs * 512 * 512 *3

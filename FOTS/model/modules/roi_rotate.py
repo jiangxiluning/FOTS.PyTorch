@@ -15,11 +15,12 @@ class ROIRotate(nn.Module):
         super().__init__()
         self.height = height
 
-    def forward(self, feature_map, boxes):
+    def forward(self, feature_map, boxes, mapping):
         '''
 
         :param feature_map:  N * 128 * 128 * 32
-        :param boxes: list of box array , box on image with 512 x 512
+        :param boxes: M * 8
+        :param mapping: mapping for image
         :return: N * H * W * C
         '''
 
@@ -28,46 +29,45 @@ class ROIRotate(nn.Module):
         cropped_images = []
         feature_map = feature_map.permute(0, 2, 3, 1).detach().cpu().numpy()
         _, _, _ , channels = feature_map.shape
-        for img_index in range(len(feature_map)):
+
+        for img_index, box in zip(mapping, boxes):
             feature = feature_map[img_index]  # B * H * W * C
 
-            for box in boxes[img_index]:
-                (x1, y1), (x2, y2), (x3, y3), (x4, y4) = box / 4 # 521 -> 128
+            x1, y1, x2, y2, x3, y3, x4, y4 = box / 4  # 521 -> 128
 
-                #show_box(feature, box / 4, 'ffffff', isFeaturemap=True)
+            # show_box(feature, box / 4, 'ffffff', isFeaturemap=True)
 
-                rotated_rect = cv2.minAreaRect(box / 4)
-                box_w, box_h = rotated_rect[1][0], rotated_rect[1][1]
+            rotated_rect = cv2.minAreaRect(np.array([[x1, y1], [x2, y2], [x3, y3], [x4, y4]]))
+            box_w, box_h = rotated_rect[1][0], rotated_rect[1][1]
 
-                if box_w <= box_h:
-                    box_w, box_h = box_h, box_w
+            if box_w <= box_h:
+                box_w, box_h = box_h, box_w
 
-                mapped_x1, mapped_y1 = (0, 0)
-                mapped_x4, mapped_y4 = (0, self.height)
+            mapped_x1, mapped_y1 = (0, 0)
+            mapped_x4, mapped_y4 = (0, self.height)
 
+            width = math.ceil(self.height * box_w / box_h)
+            max_width = width if width > max_width else max_width
 
-                width = math.ceil(self.height * box_w / box_h)
-                max_width = width if width > max_width else max_width
+            mapped_x2, mapped_y2 = (width, 0)
 
-                mapped_x2, mapped_y2 = (width, 0)
+            affine_matrix = cv2.getAffineTransform(np.float32([(x1, y1), (x2, y2), (x4, y4)]), np.float32([
+                (mapped_x1, mapped_y1), (mapped_x2, mapped_y2), (mapped_x4, mapped_y4)
+            ]))
 
-                affine_matrix = cv2.getAffineTransform(np.float32([(x1, y1), (x2, y2), (x4, y4)]), np.float32([
-                    (mapped_x1, mapped_y1), (mapped_x2, mapped_y2), (mapped_x4, mapped_y4)
-                ]))
+            h, w, c = feature.shape
 
-                h, w, c = feature.shape
+            all_channels = []
 
-                all_channels = []
+            for i in range(0, c, 3):  # transform feature map every 3 channels
+                f_split = feature[:, :, i:i + 3]
+                f_split_rotated = cv2.warpAffine(f_split, affine_matrix, dsize=(h, w))
+                all_channels.append(f_split_rotated)
+            all_channels = np.concatenate(all_channels, axis=-1)  # hstack all channels horizontally
 
-                for i in range(0, c, 3):  # transform feature map every 3 channels
-                    f_split = feature[ :, :, i:i + 3]
-                    f_split_rotated = cv2.warpAffine(f_split, affine_matrix, dsize=(h, w))
-                    all_channels.append(f_split_rotated)
-                all_channels = np.concatenate(all_channels, axis=-1)  # hstack all channels horizontally
-
-                cropped_image = all_channels[0: self.height, 0:width, :]
-                cropped_images.append(cropped_image)
-                boxes_width.append(width)
+            cropped_image = all_channels[0: self.height, 0:width, :]
+            cropped_images.append(cropped_image)
+            boxes_width.append(width)
 
         boxes_padded_width = [max_width - w for w in boxes_width]
         cropped_images_padded = np.zeros((len(boxes_padded_width), self.height, max_width, channels))

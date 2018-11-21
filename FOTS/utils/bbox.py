@@ -163,7 +163,7 @@ class Toolbox:
         return im, (ratio_h, ratio_w)
 
     @staticmethod
-    def detect(score_map, geo_map, timer, score_map_thresh = 0.8, box_thresh = 0.1, nms_thres = 0.2):
+    def detect(score_map, geo_map, timer, score_map_thresh = 0.5, box_thresh = 0.1, nms_thres = 0.2):
         '''1e-5
         restore text boxes from score map and geo map
         :param score_map:

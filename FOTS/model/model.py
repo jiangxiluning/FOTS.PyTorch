@@ -9,6 +9,7 @@ from .keys import keys
 import pretrainedmodels as pm
 import torch.optim as optim
 from ..utils.bbox import Toolbox
+import numpy as np
 
 
 class FOTSModel:
@@ -84,13 +85,14 @@ class FOTSModel:
         :param input:
         :return:
         '''
-        image, boxes = input
+        image, boxes, mapping = input
+        mask = np.ones(len(mapping))
         if image.is_cuda:
             device = image.get_device()
         else:
             device = torch.device('cpu')
 
-        score_map, geo_map, preds, actual_length, pred_boxes, indices = None, None, None, None, [], None
+
         feature_map = self.sharedConv.forward(image)
         if self.mode == 'detection':
             score_map, geo_map = self.detector(feature_map)
@@ -101,33 +103,38 @@ class FOTSModel:
         if self.mode == 'united':
             score_map, geo_map = self.detector(feature_map)
 
-
-            score = score_map.permute(0, 2, 3, 1)
-            geometry = geo_map.permute(0, 2, 3, 1)
-            score = score.detach().cpu().numpy()
-            geometry = geometry.detach().cpu().numpy()
-
-            timer = {'net': 0, 'restore': 0, 'nms': 0}
-
-            for i in range(score.shape[0]):
-                image_boxes = []
-                s = score[i, :, :, 0]
-                g = geometry[i, :, :, ]
-                bb, _ = Toolbox.detect(score_map=s, geo_map=g, timer=timer)
-
-                if len(bb) > 0:
-                    for i in range(len(bb)):
-                        b = bb[i, :8].reshape(4, 2)
-                        image_boxes.append(b)
-                pred_boxes.append(image_boxes)
-
             if self.training:
-                rois, lengths, indices = self.roirotate(feature_map, boxes)
+                rois, lengths, indices = self.roirotate(feature_map, boxes, mapping)
+                pred_mapping = mapping
+                pred_boxes = boxes
             else:
-                if sum([len(i) for i in pred_boxes]) == 0:
-                    return score_map, geo_map, (preds, actual_length), pred_boxes, indices
+                score = score_map.permute(0, 2, 3, 1)
+                geometry = geo_map.permute(0, 2, 3, 1)
+                score = score.detach().cpu().numpy()
+                geometry = geometry.detach().cpu().numpy()
 
-                rois, lengths, indices = self.roirotate(feature_map, pred_boxes)
+                timer = {'net': 0, 'restore': 0, 'nms': 0}
+
+                pred_boxes = []
+                pred_mapping = []
+                for i in range(score.shape[0]):
+                    s = score[i, :, :, 0]
+                    g = geometry[i, :, :, ]
+                    bb, _ = Toolbox.detect(score_map=s, geo_map=g, timer=timer)
+                    bb_size = bb.shape[0]
+
+                    if len(bb) > 0:
+                        pred_mapping.append(np.array([i] * bb_size))
+                        pred_boxes.append(bb[:, :8])
+                    else:
+                        mask[i] = 0
+
+                if len(pred_mapping) > 0:
+                    pred_boxes = np.concatenate(pred_boxes)
+                    pred_mapping = np.concatenate(pred_mapping)
+                    rois, lengths, indices = self.roirotate(feature_map, pred_boxes, pred_mapping)
+                else:
+                    return score_map, geo_map, (None, None), None, None, None, None
 
             rois = torch.tensor(rois).to(device)
             rois = rois.permute(0, 3, 1, 2)
@@ -135,7 +142,7 @@ class FOTSModel:
             preds = self.recognizer(rois, lengths)
             preds = preds.permute(1, 0, 2) # B, T, C -> T, B, C
 
-        return score_map, geo_map, (preds, lengths), pred_boxes, indices
+        return score_map, geo_map, (preds, lengths), pred_boxes, pred_mapping, indices, mask
 
 
 class Recognizer(BaseModel):
