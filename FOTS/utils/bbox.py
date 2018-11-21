@@ -195,7 +195,7 @@ class Toolbox:
         boxes = lanms.merge_quadrangle_n9(boxes.astype('float32'), nms_thres)
         timer['nms'] = time.time() - start
         if boxes.shape[0] == 0:
-            return None, timer
+            return np.array([]), timer
 
         # here we filter some low score boxes by the average score map, this is different from the orginal paper
         for i, box in enumerate(boxes):
