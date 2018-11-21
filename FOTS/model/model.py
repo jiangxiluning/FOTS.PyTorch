@@ -124,7 +124,7 @@ class FOTSModel:
             if self.training:
                 rois, lengths, indices = self.roirotate(feature_map, boxes)
             else:
-                if len(pred_boxes) == 0:
+                if sum([len(i) for i in pred_boxes]) == 0:
                     return score_map, geo_map, (preds, actual_length), pred_boxes, indices
 
                 rois, lengths, indices = self.roirotate(feature_map, pred_boxes)
