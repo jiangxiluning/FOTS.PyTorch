@@ -90,7 +90,7 @@ class FOTSModel:
         else:
             device = torch.device('cpu')
 
-        score_map, geo_map, preds, actual_length, pred_boxes, indices = None, None, None, None, None, None
+        score_map, geo_map, preds, actual_length, pred_boxes, indices = None, None, None, None, [], None
         feature_map = self.sharedConv.forward(image)
         if self.mode == 'detection':
             score_map, geo_map = self.detector(feature_map)
@@ -108,7 +108,18 @@ class FOTSModel:
             geometry = geometry.detach().cpu().numpy()
 
             timer = {'net': 0, 'restore': 0, 'nms': 0}
-            pred_boxes, timer = Toolbox.detect(score_map=score, geo_map=geometry, timer=timer)
+
+            for i in range(score.shape[0]):
+                image_boxes = []
+                s = score[i, :, :, 0]
+                g = geometry[i, :, :, ]
+                bb, _ = Toolbox.detect(score_map=s, geo_map=g, timer=timer)
+
+                if len(bb) > 0:
+                    for i in range(len(bb)):
+                        b = bb[i, :8].reshape(4, 2)
+                        image_boxes.append(b)
+                pred_boxes.append(image_boxes)
 
             if self.training:
                 rois, lengths, indices = self.roirotate(feature_map, boxes)
