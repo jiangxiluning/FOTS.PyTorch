@@ -105,8 +105,8 @@ class BaseTrainer:
                 lr = self.lr_scheduler.get_lr()[0]
                 self.logger.info('New Learning Rate: {:.8f}'.format(lr))
 
-            self.summyWriter.add_scalars('Train', {'train_loss': result['loss'],
-                                                   'val_loss': result['val_loss']}, epoch)
+            self.summyWriter.add_scalars('Train', {'train_' + self.monitor: result[self.monitor],
+                                                   'val_' + self.monitor: result[self.monitor]}, epoch)
         self.summyWriter.close()
 
     def _log_memory_useage(self):

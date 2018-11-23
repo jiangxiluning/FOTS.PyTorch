@@ -26,14 +26,14 @@
         "weight_decay": 1e-5
     },
     "loss": "FOTSLoss",
-    "metrics": ["my_metric", "my_metric2"],
+    "metrics": ["fots_metric"],
     "trainer": {
         "epochs": 100000,
         "save_dir": "saved/",
         "save_freq": 10,
         "verbosity": 2,
-        "monitor": "val_loss",
-        "monitor_mode": "min"
+        "monitor": "hmean",
+        "monitor_mode": "max"
     },
     "arch": "FOTSModel",
     "model": {

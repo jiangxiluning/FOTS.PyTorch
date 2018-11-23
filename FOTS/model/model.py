@@ -86,7 +86,7 @@ class FOTSModel:
         :return:
         '''
         image, boxes, mapping = input
-        mask = np.ones(len(mapping))
+
         if image.is_cuda:
             device = image.get_device()
         else:
@@ -104,7 +104,7 @@ class FOTSModel:
             score_map, geo_map = self.detector(feature_map)
 
             if self.training:
-                rois, lengths, indices = self.roirotate(feature_map, boxes, mapping)
+                rois, lengths, indices = self.roirotate(feature_map, boxes[:, :8], mapping)
                 pred_mapping = mapping
                 pred_boxes = boxes
             else:
@@ -125,16 +125,14 @@ class FOTSModel:
 
                     if len(bb) > 0:
                         pred_mapping.append(np.array([i] * bb_size))
-                        pred_boxes.append(bb[:, :8])
-                    else:
-                        mask[i] = 0
+                        pred_boxes.append(bb)
 
                 if len(pred_mapping) > 0:
                     pred_boxes = np.concatenate(pred_boxes)
                     pred_mapping = np.concatenate(pred_mapping)
-                    rois, lengths, indices = self.roirotate(feature_map, pred_boxes, pred_mapping)
+                    rois, lengths, indices = self.roirotate(feature_map, pred_boxes[:, :8], pred_mapping)
                 else:
-                    return score_map, geo_map, (None, None), None, None, None, None
+                    return score_map, geo_map, (None, None), pred_boxes, pred_mapping, None
 
             rois = torch.tensor(rois).to(device)
             rois = rois.permute(0, 3, 1, 2)
@@ -142,7 +140,7 @@ class FOTSModel:
             preds = self.recognizer(rois, lengths)
             preds = preds.permute(1, 0, 2) # B, T, C -> T, B, C
 
-        return score_map, geo_map, (preds, lengths), pred_boxes, pred_mapping, indices, mask
+        return score_map, geo_map, (preds, lengths), pred_boxes, pred_mapping, indices
 
 
 class Recognizer(BaseModel):

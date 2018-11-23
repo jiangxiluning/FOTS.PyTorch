@@ -32,14 +32,9 @@ class Trainer(BaseTrainer):
             t.append(__tensors.to(self.device))
         return t
 
-    def _eval_metrics(self, output, target, mask):
-        acc_metrics = np.zeros(len(self.metrics))
-        output = output.cpu().data.numpy()
-        target = target.cpu().data.numpy()
-        output = np.argmax(output, axis=1)
-        for i, metric in enumerate(self.metrics):
-            acc_metrics[i] += metric(output, target)
-        return acc_metrics
+    def _eval_metrics(self, pred, gt):
+        precious, recall, hmean = self.metrics[0](pred, gt)
+        return np.array([precious, recall, hmean])
 
     def _train_epoch(self, epoch):
         """
@@ -60,7 +55,7 @@ class Trainer(BaseTrainer):
         self.model.train()
 
         total_loss = 0
-        total_metrics = np.zeros(len(self.metrics))
+        total_metrics = np.zeros(3) # precious, recall, hmean
         for batch_idx, gt in enumerate(self.data_loader):
             try:
                 imagePaths, img, score_map, geo_map, training_mask, transcripts, boxes, mapping= gt
@@ -73,11 +68,11 @@ class Trainer(BaseTrainer):
                 #         show_box(image.permute(1, 2, 0).detach().cpu().numpy()[:,:, ::-1].astype(np.uint8).copy(), bb, tt)
 
                 self.optimizer.zero_grad()
-                pred_score_map, pred_geo_map, pred_recog, pred_boxes, pred_mapping, indices, rois_mask = self.model.forward(img, boxes, mapping)
+                pred_score_map, pred_geo_map, pred_recog, pred_boxes, pred_mapping, indices = self.model.forward(img, boxes, mapping)
 
-                transcripts = transcripts[rois_mask == 1][indices]
-                pred_boxes = pred_boxes[rois_mask == 1][indices]
-                pred_mapping = pred_mapping[rois_mask == 1][indices]
+                transcripts = transcripts[indices]
+                pred_boxes = pred_boxes[indices]
+                pred_mapping = pred_mapping[indices]
                 labels, label_lengths = self.labelConverter.encode(transcripts.tolist())
                 recog = (labels, label_lengths)
 
@@ -87,10 +82,25 @@ class Trainer(BaseTrainer):
                 self.optimizer.step()
 
                 total_loss += loss.item()
-                #total_metrics += self._eval_metrics(output, target)
+                pred_transcripts = []
+                if len(pred_mapping) > 0:
+                    pred_mapping = pred_mapping[indices]
+                    pred_boxes = pred_boxes[indices]
+                    pred_fns = [imagePaths[i] for i in pred_mapping]
 
-                total_metrics += 0
-                break
+                    pred, lengths = pred_recog
+                    _, pred = pred.max(2)
+                    for i in range(lengths.numel()):
+                        l = lengths[i]
+                        p = pred[:l, i]
+                        t = self.labelConverter.decode(p, l)
+                        pred_transcripts.append(t)
+                    pred_transcripts = np.array(pred_transcripts)
+
+                gt_fns = [imagePaths[i] for i in mapping]
+                total_metrics += self._eval_metrics((pred_boxes, pred_transcripts, pred_fns),
+                                                        (boxes, transcripts, gt_fns))
+
                 if self.verbosity >= 2 and batch_idx % self.log_step == 0:
                     self.logger.info('Train Epoch: {} [{}/{} ({:.0f}%)] Loss: {:.6f} Detection Loss: {:.6f} Recognition Loss:{:.6f}'.format(
                         epoch,
@@ -104,7 +114,9 @@ class Trainer(BaseTrainer):
 
         log = {
             'loss': total_loss / len(self.data_loader),
-            'metrics': (total_metrics / len(self.data_loader)).tolist()
+            'precious': total_metrics[0] / len(self.data_loader),
+            'recall': total_metrics[1] / len(self.data_loader),
+            'hmean': total_metrics[2] / len(self.data_loader)
         }
 
         if self.valid:
@@ -123,34 +135,39 @@ class Trainer(BaseTrainer):
             The validation metrics in log must have the key 'val_metrics'.
         """
         self.model.eval()
-        total_val_loss = 0
-        total_val_metrics = np.zeros(len(self.metrics))
+        total_val_metrics = np.zeros(3)
         with torch.no_grad():
             for batch_idx, gt in enumerate(self.valid_data_loader):
                 try:
                     imagePaths, img, score_map, geo_map, training_mask, transcripts, boxes, mapping = gt
                     img, score_map, geo_map, training_mask = self._to_tensor(img, score_map, geo_map, training_mask)
 
-                    pred_score_map, pred_geo_map, pred_recog, pred_boxes, pred_mapping, indices, rois_mask = self.model.forward(img, boxes, mapping)
-
-                    recog = None
+                    pred_score_map, pred_geo_map, pred_recog, pred_boxes, pred_mapping, indices = self.model.forward(img, boxes, mapping)
+                    pred_transcripts = []
+                    pred_fns = []
                     if len(pred_mapping) > 0:
-                        transcripts = transcripts[rois_mask == 1][indices]
-                        pred_mapping = pred_mapping[rois_mask == 1][indices]
-                        pred_boxes = pred_boxes[rois_mask == 1][indices]
-                        labels, label_lengths = self.labelConverter.encode(transcripts.tolist())
-                        recog = (labels, label_lengths)
+                        pred_mapping = pred_mapping[indices]
+                        pred_boxes = pred_boxes[indices]
+                        pred_fns = [imagePaths[i] for i in pred_mapping]
 
-                    det_loss, reg_loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, recog, pred_recog, training_mask)
-                    loss = det_loss + reg_loss
-                    total_val_loss += loss.item()
+                        pred, lengths = pred_recog
+                        _, pred = pred.max(2)
+                        for i in range(lengths.numel()):
+                            l = lengths[i]
+                            p = pred[:l, i]
+                            t = self.labelConverter.decode(p, l)
+                            pred_transcripts.append(t)
+                        pred_transcripts = np.array(pred_transcripts)
 
-                    #total_val_metrics += self._eval_metrics(output, target, training_mask) #TODO: should add AP metric
+                    gt_fns = [imagePaths[i] for i in mapping]
+                    total_val_metrics += self._eval_metrics((pred_boxes, pred_transcripts, pred_fns),
+                                                            (boxes, transcripts, gt_fns))
                 except:
                     print(imagePaths)
                     raise
 
         return {
-            'val_loss': total_val_loss / len(self.valid_data_loader),
-            'val_metrics': (total_val_metrics / len(self.valid_data_loader)).tolist()
+            'val_precious': total_val_metrics[0] / len(self.valid_data_loader),
+            'val_recall': total_val_metrics[1] / len(self.valid_data_loader),
+            'val_hmean': total_val_metrics[2] / len(self.valid_data_loader)
         }

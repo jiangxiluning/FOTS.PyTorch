@@ -87,7 +87,7 @@ class strLabelConverter(object):
             text (str or list of str): texts to convert.
         """
         if length.numel() == 1:
-            length = length[0]
+            length = length.item()
             assert t.numel() == length, "text with length: {} does not match declared length: {}".format(t.numel(), length)
             if raw:
                 return ''.join([self.alphabet[i - 1] for i in t])

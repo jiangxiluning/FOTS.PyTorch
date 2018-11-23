@@ -1,28 +1,8 @@
 import numpy as np
+from ..utils.eval_tools.icdar2015 import eval as icdar_eval
 
 
-def my_metric(y_input, y_target):
-    assert len(y_input) == len(y_target)
-    correct = 0
-    for y0, y1 in zip(y_input, y_target):
-        if np.array_equal(y0, y1):
-            correct += 1
-    return correct / len(y_input)
-
-
-def my_metric2(y_input, y_target):
-    assert len(y_input) == len(y_target)
-    correct = 0
-    for y0, y1 in zip(y_input, y_target):
-        if np.array_equal(y0, y1):
-            correct += 1
-    return correct / len(y_input) * 2
-
-
-
-def detection_metric(output, target, mask):
-    pass
-
-
-def recognition_metric(output, target, mask):
-    pass
+def fots_metric(pred, gt):
+    config = icdar_eval.default_evaluation_params()
+    output = icdar_eval.eval(pred, gt, config)
+    return output['method']['precision'], output['method']['recall'], output['method']['hmean']

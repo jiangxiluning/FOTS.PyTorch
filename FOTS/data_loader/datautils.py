@@ -720,6 +720,8 @@ def collate_fn(batch):
     mapping = np.array(mapping)
     texts = np.array(texts)
     bboxs = np.stack(bboxs, axis=0)
+    bboxs = np.concatenate([bboxs, np.ones((len(bboxs), 1))], axis = 1).astype(np.float32)
+    imagePaths = [p.name for p in imagePaths]
 
     return imagePaths, images, score_maps, geo_maps, training_masks, texts, bboxs, mapping
 
