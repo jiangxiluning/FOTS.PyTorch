@@ -66,7 +66,7 @@ class FOTSLoss(nn.Module):
 
     def __init__(self, config):
         super(FOTSLoss, self).__init__()
-        self.mode = config['mode']
+        self.mode = config['model']['mode']
         self.detectionLoss = DetectionLoss()
         self.recogitionLoss = RecognitionLoss()
 

@@ -11,16 +11,17 @@ logging.basicConfig(level=logging.DEBUG, format='')
 
 def load_model(model_path, with_gpu):
     logger.info("Loading checkpoint: {} ...".format(model_path))
-    checkpoints = torch.load(model_path)
+    checkpoints = torch.load(model_path, map_location = 'cpu')
     if not checkpoints:
         raise RuntimeError('No checkpoint found.')
     config = checkpoints['config']
     state_dict = checkpoints['state_dict']
     model = FOTSModel(config)
-    model = torch.nn.DataParallel(model)
+    model.parallelize()
     model.load_state_dict(state_dict)
     if with_gpu:
-        model = model.cuda()
+        model.to(torch.device('cuda'))
+    model.eval()
     return model
 
 

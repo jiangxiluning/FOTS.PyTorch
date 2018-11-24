@@ -16,7 +16,7 @@ class FOTSModel:
 
     def __init__(self, config):
 
-        self.mode = config['mode']
+        self.mode = config['model']['mode']
 
         bbNet =  pm.__dict__['resnet50'](pretrained='imagenet') # resnet50 in paper
         self.sharedConv = shared_conv.SharedConv(bbNet, config)

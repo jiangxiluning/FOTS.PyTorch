@@ -33,10 +33,10 @@ def main(config, resume):
         val = data_loader.val()
 
     os.environ['CUDA_VISIBLE_DEVICES'] = ','.join([str(i) for i in config['gpus']])
-    model = eval(config['arch'])(config['model'])
+    model = eval(config['arch'])(config)
     model.summary()
 
-    loss = eval(config['loss'])(config['model'])
+    loss = eval(config['loss'])(config)
     metrics = [eval(metric) for metric in config['metrics']]
 
     trainer = Trainer(model, loss, metrics,
