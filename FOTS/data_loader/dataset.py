@@ -247,6 +247,7 @@ class SynthTextDataset(Dataset):
 
         imagePath, wordBBoxes, transcripts = gt
         im = cv2.imread((self.dataRoot / imagePath).as_posix())
+        imagePath = pathlib.Path(imagePath)
         wordBBoxes = np.expand_dims(wordBBoxes, axis = 2) if (wordBBoxes.ndim == 2) else wordBBoxes
         _, _, numOfWords = wordBBoxes.shape
         text_polys = wordBBoxes.reshape([8, numOfWords], order = 'F').T  # num_words * 8
