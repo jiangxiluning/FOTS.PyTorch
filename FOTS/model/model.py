@@ -43,11 +43,11 @@ class FOTSModel:
 
     def optimize(self, optimizer_type, params):
         optimizer = getattr(optim, optimizer_type)(
-            [{
-                'params': self.sharedConv.parameters(),
-                'params': self.detector.parameters(),
-                'params': self.recognizer.parameters()
-            }],
+            [
+                {'params': self.sharedConv.parameters()},
+                {'params': self.detector.parameters()},
+                {'params': self.recognizer.parameters()},
+            ],
             **params
         )
         return optimizer
