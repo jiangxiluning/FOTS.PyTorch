@@ -69,15 +69,15 @@ class ROIRotate(nn.Module):
             cropped_images.append(cropped_image)
             boxes_width.append(width)
 
-        boxes_padded_width = [max_width - w for w in boxes_width]
-        cropped_images_padded = np.zeros((len(boxes_padded_width), self.height, max_width, channels))
+        #boxes_padded_width = [max_width - w for w in boxes_width]
+        cropped_images_padded = np.zeros((len(cropped_images), self.height, max_width, channels))
 
-        for i in range(len(boxes_padded_width)):
-            padded_width = boxes_padded_width[i]
-            padded_part = np.zeros((self.height, padded_width, channels))
+        for i in range(len(cropped_images)):
+            _, w, _ = cropped_images[i].shape
+            padded_part = np.zeros((self.height, max_width - w, channels))
             cropped_images_padded[i] = np.concatenate([cropped_images[i], padded_part], axis=1)
 
-        lengths = np.array([max_width] * len(boxes_padded_width)) - np.array(boxes_padded_width)
+        lengths = np.array(boxes_width)
         indices = np.argsort(lengths) # sort images by its width cause pack padded tensor needs it
         indices = indices[::-1].copy() # descending order
         lengths = lengths[indices]

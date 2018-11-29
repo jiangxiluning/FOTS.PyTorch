@@ -302,7 +302,7 @@ class Toolbox:
         im_resized = im_resized.unsqueeze(0)
         im_resized = im_resized.permute(0, 3, 1, 2)
 
-        score, geometry, preds, boxes, mapping, indices = model.forward(im_resized, None)
+        score, geometry, preds, boxes, mapping, indices = model.forward(im_resized, None, None)
 
         if len(boxes) != 0:
             boxes = boxes[:, :8].reshape((-1, 4, 2))
