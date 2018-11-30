@@ -4,7 +4,7 @@ import collections
 import cv2
 import numpy as np
 from sklearn.decomposition import PCA
-from sklearn.preprocessing import MinMaxScaler
+
 def ensure_dir(path):
     if not os.path.exists(path):
         os.makedirs(path)
