@@ -2,6 +2,7 @@ from torch import nn
 import cv2
 import numpy as np
 import math
+import torch
 from ...utils.util import show_box
 
 class ROIRotate(nn.Module):
@@ -85,5 +86,43 @@ class ROIRotate(nn.Module):
 
         return cropped_images_padded, lengths, indices
 
+    def warpAffine(self, featureMap, matrix, dsize):
+        """
+
+        :param feature: feature map
+        :param matrix: affin matrix 2*3
+        :param dsize: target size tuple
+        :return:
+        """
+        m0 = matrix[0, 0]
+        m1 = matrix[0, 1]
+        m2 = matrix[0, 2]
+        m3 = matrix[1, 0]
+        m4 = matrix[1, 1]
+        m5 = matrix[1, 2]
+
+        detImg = torch.zeros((featureMap.shape[0], featureMap[1]), dtype=featureMap.dtype, device=featureMap.device)
+        matrix = matrix.astype(np.double)
+
+        D = m0 * m4 - m1 * m3
+        D = 1.0 / D if D != 0 else 0.
+        A11 = m4 * D
+        A22 = m0 * D
+        m0 = A11
+        m1 *= -D
+        m3 = m1
+        m4 = A22
+        b1 = -m0 * m2 - m1 * m5
+        b2 = -m3 * m2 - m4 * m5
+        m2 = b1
+        m5 = b2
+
+
+
+
+
+
+    def saturate_cast_short(self, n):
+        return np.clip(n, np.iinfo(np.short).min, np.iinfo(np.short).max)
 
 
