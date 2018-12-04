@@ -45,13 +45,13 @@ class CRNN(nn.Module):
 
         cnn = nn.Sequential()
 
-        def convRelu(i, batchNormalization=False):
+        def convRelu(i):
             nIn = nc if i == 0 else nm[i - 1]
             nOut = nm[i]
             cnn.add_module('conv{0}'.format(i),
                            nn.Conv2d(nIn, nOut, ks[i], ss[i], ps[i]))
-            if batchNormalization:
-                cnn.add_module('batchnorm{0}'.format(i), nn.BatchNorm2d(nOut))
+
+            cnn.add_module('batchnorm{0}'.format(i), nn.BatchNorm2d(nOut))
             if leakyRelu:
                 cnn.add_module('relu{0}'.format(i),
                                nn.LeakyReLU(0.2, inplace=True))
