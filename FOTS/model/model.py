@@ -22,7 +22,7 @@ class FOTSModel:
         self.sharedConv = shared_conv.SharedConv(bbNet, config)
 
         nclass = len(keys) + 1
-        self.recognizer = Recognizer(nclass, config).double()
+        self.recognizer = Recognizer(nclass, config)
         self.detector = Detector(config)
         self.roirotate = ROIRotate()
 
@@ -134,8 +134,6 @@ class FOTSModel:
                 else:
                     return score_map, geo_map, (None, None), pred_boxes, pred_mapping, None
 
-            rois = torch.tensor(rois).to(device)
-            rois = rois.permute(0, 3, 1, 2)
             lengths = torch.tensor(lengths).to(device)
             preds = self.recognizer(rois, lengths)
             preds = preds.permute(1, 0, 2) # B, T, C -> T, B, C

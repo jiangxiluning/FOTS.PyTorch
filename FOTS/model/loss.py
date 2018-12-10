@@ -1,7 +1,7 @@
 ### 此处默认真实值和预测值的格式均为 bs * W * H * channels
 import torch
 import torch.nn as nn
-from warpctc import CTCLoss
+from torch.nn import CTCLoss
 
 
 class DetectionLoss(nn.Module):
@@ -58,7 +58,7 @@ class RecognitionLoss(nn.Module):
 
     def forward(self, *input):
         gt, pred = input[0], input[1]
-        loss = self.ctc_loss(pred[0].float(), pred[1].int().cpu(), gt[0].int(), gt[1].int().cpu())
+        loss = self.ctc_loss(pred[0], gt[0], pred[1], gt[1])
         return loss
 
 
