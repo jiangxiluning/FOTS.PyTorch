@@ -73,7 +73,7 @@ class ROIRotate(nn.Module):
             affine_matrix = ROIRotate.param2theta(affine_matrix, width, height)
 
             affine_matrix *= 1e20 # cancel the error when type conversion
-            affine_matrix = torch.Tensor(affine_matrix, device=feature.device)
+            affine_matrix = torch.tensor(affine_matrix, device=feature.device, dtype=torch.float)
             affine_matrix /= 1e20
 
             # grid = torch.nn.functional.affine_grid(affine_matrix[np.newaxis], feature[np.newaxis].size())

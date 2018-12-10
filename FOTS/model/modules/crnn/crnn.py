@@ -19,6 +19,7 @@ class BidirectionalLSTM(nn.Module):
         t_rec = padded_input.contiguous().view(T * b, h)
         output = self.embedding(t_rec)  # [T * b, nOut]
         output = output.view(b, T, -1)
+        output = nn.functional.log_softmax(output, dim=-1) # required by pytorch's ctcloss
 
         return output
 
