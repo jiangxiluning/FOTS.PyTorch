@@ -7,13 +7,13 @@ from ...base.base_model import BaseModel
 SPEEDUP_SCALE = 512
 
 
-class SharedConv(BaseModel):
+class SharedConv(nn.Module):
     '''
     sharded convolutional layers
     '''
 
-    def __init__(self, bbNet: nn.Module, config):
-        super(SharedConv, self).__init__(config)
+    def __init__(self, bbNet: nn.Module):
+        super().__init__()
         self.backbone = bbNet
         self.backbone.eval()
         # backbone as feature extractor
