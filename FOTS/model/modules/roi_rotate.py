@@ -53,6 +53,7 @@ class ROIRotate(nn.Module):
             mapped_x4, mapped_y4 = (0, self.height)
 
             width_box = math.ceil(self.height * box_w / box_h)
+            width_box = min(width_box, width) # not to exceed feature map's width
             max_width = width_box if width_box > max_width else max_width
 
             mapped_x2, mapped_y2 = (width_box, 0)
