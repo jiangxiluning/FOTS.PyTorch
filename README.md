@@ -1,3 +1,5 @@
+## Sorry about the pause of updating，since I had more important envent, ICDAR 2019 SROIE, to work on. Now, I am planning to pay off the technical debt. 
+
 ## I have finished the detection branch and am still training the model to verify its correctness. All the features will be published to develop branch, and keep master stable. 
  - ICDAR Dataset 
  - SynthText 800K Dataset
