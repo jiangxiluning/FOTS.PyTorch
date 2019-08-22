@@ -13,6 +13,8 @@ class DetectionLoss(nn.Module):
                 y_true_geo, y_pred_geo,
                 training_mask):
         classification_loss = self.__dice_coefficient(y_true_cls, y_pred_cls, training_mask)
+
+        classification_loss = self.__cross_entroy(y_true_cls, y_pred_cls, training_mask)
         # scale classification loss to match the iou loss part
         classification_loss *= 0.01
 
@@ -31,7 +33,7 @@ class DetectionLoss(nn.Module):
         L_theta = 1 - torch.cos(theta_pred - theta_gt)
         L_g = L_AABB + 20 * L_theta
 
-        return torch.mean(L_g * y_true_cls * training_mask) + classification_loss
+        return torch.mean(L_g * y_true_cls * training_mask) , classification_loss
 
     def __dice_coefficient(self, y_true_cls, y_pred_cls,
                          training_mask):
@@ -48,6 +50,10 @@ class DetectionLoss(nn.Module):
         loss = 1. - (2 * intersection / union)
 
         return loss
+
+    def __cross_entroy(self, y_true_cls, y_pred_cls, training_mask):
+        #import ipdb; ipdb.set_trace()
+        return torch.nn.functional.binary_cross_entropy(y_pred_cls*training_mask, (y_true_cls*training_mask))
 
 
 class RecognitionLoss(nn.Module):
@@ -81,13 +87,13 @@ class FOTSLoss(nn.Module):
         if self.mode == 'recognition':
             recognition_loss = self.recogitionLoss(y_true_recog, y_pred_recog)
         elif self.mode == 'detection':
-            detection_loss = self.detectionLoss(y_true_cls, y_pred_cls,
+            reg_loss, cls_loss = self.detectionLoss(y_true_cls, y_pred_cls,
                                                 y_true_geo, y_pred_geo, training_mask)
         elif self.mode == 'united':
-            detection_loss = self.detectionLoss(y_true_cls, y_pred_cls,
+            reg_loss, cls_loss = self.detectionLoss(y_true_cls, y_pred_cls,
                                                 y_true_geo, y_pred_geo, training_mask)
             if y_true_recog:
                 recognition_loss = self.recogitionLoss(y_true_recog, y_pred_recog)
 
-        recognition_loss = recognition_loss.to(detection_loss.device)
-        return detection_loss, recognition_loss
+        #recognition_loss = recognition_loss.to(detection_loss.device)
+        return reg_loss, cls_loss, recognition_loss

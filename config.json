@@ -1,20 +1,19 @@
 {
     "name": "FOTS",
-    "cuda": false,
-    "gpus": [0, 1, 2, 3],
+    "cuda": true,
+    "gpus": [0, 1],
     "data_loader": {
         "dataset":"synth800k",
-        "data_dir": "/Users/luning/Dev/data/SynthText/SynthText/",
-        "batch_size": 4,
+        "data_dir": "/home/luning/Dev/data/OCR/Recognition/Train/SynthText",
+        "batch_size": 24,
         "shuffle": true,
-        "workers": 0
+        "workers": 8
     },
     "validation": {
-        "validation_split": 0.1,
+        "validation_split": 0.2,
         "shuffle": true
     },
-
-    "lr_scheduler_type": "ExponentialLR",
+    "lr_scheduler_type": "",
     "lr_scheduler_freq": 10000,
     "lr_scheduler": {
             "gamma": 0.94
@@ -22,15 +21,14 @@
  
     "optimizer_type": "Adam",
     "optimizer": {
-        "lr": 0.0001,
-        "weight_decay": 1e-5
+        "lr": 0.001
     },
     "loss": "FOTSLoss",
     "metrics": ["fots_metric"],
     "trainer": {
-        "epochs": 100000,
+        "epochs": 10,
         "save_dir": "saved/",
-        "save_freq": 10,
+        "save_freq": 1,
         "verbosity": 2,
         "monitor": "hmean",
         "monitor_mode": "max"

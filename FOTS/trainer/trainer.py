@@ -74,10 +74,12 @@ class Trainer(BaseTrainer):
                 pred_boxes = pred_boxes[indices]
                 pred_mapping = pred_mapping[indices]
                 labels, label_lengths = self.labelConverter.encode(transcripts.tolist())
+                labels = labels.to(self.device)
+                label_lengths = label_lengths.to(self.device)
                 recog = (labels, label_lengths)
 
-                det_loss, reg_loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, recog, pred_recog, training_mask)
-                loss = det_loss + reg_loss
+                iou_loss, cls_loss, reg_loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, recog, pred_recog, training_mask)
+                loss = iou_loss + cls_loss + reg_loss
                 loss.backward()
                 self.optimizer.step()
 
@@ -102,12 +104,12 @@ class Trainer(BaseTrainer):
                                                         (boxes, transcripts, gt_fns))
 
                 if self.verbosity >= 2 and batch_idx % self.log_step == 0:
-                    self.logger.info('Train Epoch: {} [{}/{} ({:.0f}%)] Loss: {:.6f} Detection Loss: {:.6f} Recognition Loss:{:.6f}'.format(
+                    self.logger.info('Train Epoch: {} [{}/{} ({:.0f}%)] Loss: {:.6f} IOU Loss: {:.6f} CLS Loss: {:.6f} Recognition Loss: {:.6f}'.format(
                         epoch,
                         batch_idx * self.data_loader.batch_size,
                         len(self.data_loader) * self.data_loader.batch_size,
                         100.0 * batch_idx / len(self.data_loader),
-                        loss.item(), det_loss.item(), reg_loss.item()))
+                        loss.item(), iou_loss.item(), cls_loss.item(), reg_loss.item()))
             except:
                 print(imagePaths)
                 raise

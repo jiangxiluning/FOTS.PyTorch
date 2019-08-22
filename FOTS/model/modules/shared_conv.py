@@ -17,8 +17,8 @@ class SharedConv(BaseModel):
         self.backbone = bbNet
         self.backbone.eval()
         # backbone as feature extractor
-        for param in self.backbone.parameters():
-            param.requires_grad = False
+        """ for param in self.backbone.parameters():
+            param.requires_grad = False """
 
         # Feature-merging branch
         # self.toplayer = nn.Conv2d(2048, 256, kernel_size = 1, stride = 1, padding = 0)  # Reduce channels
