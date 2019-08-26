@@ -14,7 +14,7 @@ class DetectionLoss(nn.Module):
                 training_mask):
         classification_loss = self.__dice_coefficient(y_true_cls, y_pred_cls, training_mask)
 
-        classification_loss = self.__cross_entroy(y_true_cls, y_pred_cls, training_mask)
+        #classification_loss = self.__cross_entroy(y_true_cls, y_pred_cls, training_mask)
         # scale classification loss to match the iou loss part
         classification_loss *= 0.01
 
@@ -81,19 +81,23 @@ class FOTSLoss(nn.Module):
                 y_true_recog, y_pred_recog,
                 training_mask):
 
-        recognition_loss = torch.tensor([0]).float()
-        detection_loss = torch.tensor([0]).float()
+        
 
         if self.mode == 'recognition':
             recognition_loss = self.recogitionLoss(y_true_recog, y_pred_recog)
+            reg_loss = torch.tensor([0.], device=recognition_loss.device)
+            cls_loss = torch.tensor([0.], device=recognition_loss.device)
         elif self.mode == 'detection':
             reg_loss, cls_loss = self.detectionLoss(y_true_cls, y_pred_cls,
                                                 y_true_geo, y_pred_geo, training_mask)
+            recognition_loss = torch.tensor([0.], device=reg_loss.device)
         elif self.mode == 'united':
             reg_loss, cls_loss = self.detectionLoss(y_true_cls, y_pred_cls,
                                                 y_true_geo, y_pred_geo, training_mask)
             if y_true_recog:
                 recognition_loss = self.recogitionLoss(y_true_recog, y_pred_recog)
+                if recognition_loss <0 :
+                    import ipdb; ipdb.set_trace()
 
         #recognition_loss = recognition_loss.to(detection_loss.device)
         return reg_loss, cls_loss, recognition_loss

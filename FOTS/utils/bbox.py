@@ -163,7 +163,7 @@ class Toolbox:
         return im, (ratio_h, ratio_w)
 
     @staticmethod
-    def detect(score_map, geo_map, timer, score_map_thresh = 0.5, box_thresh = 0.1, nms_thres = 0.2):
+    def detect(score_map, geo_map, timer, score_map_thresh = 0.5, box_thresh = 0.8, nms_thres = 0.1):
         '''1e-5
         restore text boxes from score map and geo map
         :param score_map:
@@ -174,6 +174,7 @@ class Toolbox:
         :param nms_thres: threshold for nms
         :return:
         '''
+        #import pdb; pdb.set_trace()
         if len(score_map.shape) == 4:
             score_map = score_map[0, :, :, 0]
             geo_map = geo_map[0, :, :, ]
@@ -202,7 +203,7 @@ class Toolbox:
             mask = np.zeros_like(score_map, dtype = np.uint8)
             cv2.fillPoly(mask, box[:8].reshape((-1, 4, 2)).astype(np.int32) // 4, 1)
             boxes[i, 8] = cv2.mean(score_map, mask)[0]
-        boxes = boxes[boxes[:, 8] > box_thresh]
+        #boxes = boxes[boxes[:, 8] > box_thresh]
         return boxes, timer
 
     @staticmethod

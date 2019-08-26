@@ -69,10 +69,12 @@ class Trainer(BaseTrainer):
 
                 self.optimizer.zero_grad()
                 pred_score_map, pred_geo_map, pred_recog, pred_boxes, pred_mapping, indices = self.model.forward(img, boxes, mapping)
-
+                #import pdb; pdb.set_trace()
                 transcripts = transcripts[indices]
                 pred_boxes = pred_boxes[indices]
-                pred_mapping = pred_mapping[indices]
+                pred_mapping = mapping[indices]
+                pred_fns = [imagePaths[i] for i in pred_mapping]
+
                 labels, label_lengths = self.labelConverter.encode(transcripts.tolist())
                 labels = labels.to(self.device)
                 label_lengths = label_lengths.to(self.device)
@@ -82,14 +84,11 @@ class Trainer(BaseTrainer):
                 loss = iou_loss + cls_loss + reg_loss
                 loss.backward()
                 self.optimizer.step()
+                
 
                 total_loss += loss.item()
                 pred_transcripts = []
                 if len(pred_mapping) > 0:
-                    pred_mapping = pred_mapping[indices]
-                    pred_boxes = pred_boxes[indices]
-                    pred_fns = [imagePaths[i] for i in pred_mapping]
-
                     pred, lengths = pred_recog
                     _, pred = pred.max(2)
                     for i in range(lengths.numel()):
@@ -99,7 +98,7 @@ class Trainer(BaseTrainer):
                         pred_transcripts.append(t)
                     pred_transcripts = np.array(pred_transcripts)
 
-                gt_fns = [imagePaths[i] for i in mapping]
+                gt_fns = pred_fns
                 total_metrics += self._eval_metrics((pred_boxes, pred_transcripts, pred_fns),
                                                         (boxes, transcripts, gt_fns))
 

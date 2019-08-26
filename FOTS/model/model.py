@@ -26,13 +26,6 @@ class FOTSModel:
         self.detector = Detector(config)
         self.roirotate = ROIRotate()
 
-        def backward_hook(self, grad_input, grad_output):
-            for g in grad_input:
-                g[g != g] = 0  # replace all nan/inf in gradients to zero
-
-        self.recognizer.register_backward_hook(backward_hook)
-        self.detector.register_backward_hook(backward_hook)
-
     def parallelize(self):
         self.sharedConv = torch.nn.DataParallel(self.sharedConv)
         self.recognizer = torch.nn.DataParallel(self.recognizer)

@@ -56,6 +56,8 @@ class strLabelConverter(object):
             # NOTE: 0 is reserved for 'blank' required by wrap_ctc
             self.dict[char] = i + 1
 
+        self.dict['-'] = len(self.dict)
+
     def encode(self, text):
         """Support batch or single str.
         Args:
@@ -66,7 +68,7 @@ class strLabelConverter(object):
         """
         if isinstance(text, str):
             text = [
-                self.dict.get(char.lower() if self._ignore_case else char, 0)
+                self.dict.get(char.lower() if self._ignore_case else char, self.dict['-'])
                 for char in text
             ]
             length = [len(text)]

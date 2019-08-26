@@ -17,7 +17,8 @@ def load_model(model_path, with_gpu):
     config = checkpoints['config']
     state_dict = checkpoints['state_dict']
     model = FOTSModel(config)
-    model.parallelize()
+    if with_gpu:
+        model.parallelize()
     model.load_state_dict(state_dict)
     if with_gpu:
         model.to(torch.device('cuda'))
@@ -31,6 +32,7 @@ def main(args:argparse.Namespace):
     output_dir = args.output_dir
     with_image = True if output_dir else False
     with_gpu = True if torch.cuda.is_available() else False
+    #with_gpu = False
 
     model = load_model(model_path, with_gpu)
 
@@ -38,6 +40,7 @@ def main(args:argparse.Namespace):
         try:
             with torch.no_grad():
                 ploy, im = Toolbox.predict(image_fn, model, with_image, output_dir, with_gpu)
+                print(len(ploy))
         except Exception as e:
             traceback.print_exc()
 

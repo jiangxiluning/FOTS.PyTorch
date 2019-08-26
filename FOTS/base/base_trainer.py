@@ -73,6 +73,7 @@ class BaseTrainer:
         """
         Full training logic
         """
+        print(self.epochs)
         for epoch in range(self.start_epoch, self.epochs + 1):
             try:
                 result = self._train_epoch(epoch)
@@ -100,8 +101,8 @@ class BaseTrainer:
                 self._save_checkpoint(epoch, log, save_best=True)
             if epoch % self.save_freq == 0:
                 self._save_checkpoint(epoch, log)
-            if self.lr_scheduler and epoch % self.lr_scheduler_freq == 0:
-                self.lr_scheduler.step(epoch)
+            if self.lr_scheduler:
+                self.lr_scheduler.step()
                 lr = self.lr_scheduler.get_lr()[0]
                 self.logger.info('New Learning Rate: {:.8f}'.format(lr))
 
@@ -179,5 +180,5 @@ class BaseTrainer:
                     if isinstance(v, torch.Tensor):
                         state[k] = v.cuda(torch.device('cuda'))
         self.train_logger = checkpoint['logger']
-        self.config = checkpoint['config']
+        #self.config = checkpoint['config']
         self.logger.info("Checkpoint '{}' (epoch {}) loaded".format(resume_path, self.start_epoch))
