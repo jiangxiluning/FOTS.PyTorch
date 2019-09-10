@@ -12,7 +12,7 @@ class SynthTextDataLoaderFactory(BaseDataLoader):
         dataRoot = self.config['data_loader']['data_dir']
         self.workers = self.config['data_loader']['workers']
         ds = SynthTextDataset(dataRoot)
-
+        
         self.__trainDataset, self.__valDataset = self.__train_val_split(ds)
 
     def train(self):
@@ -21,6 +21,9 @@ class SynthTextDataLoaderFactory(BaseDataLoader):
         return trainLoader
 
     def val(self):
+        if self.__valDataset is None:
+            return None
+
         shuffle = self.config['validation']['shuffle']
         valLoader = torchdata.DataLoader(self.__valDataset, num_workers = self.num_workers, batch_size = self.batch_size,
                                          shuffle = shuffle, collate_fn = collate_fn)
@@ -38,6 +41,10 @@ class SynthTextDataLoaderFactory(BaseDataLoader):
             split = float(split)
         except:
             raise RuntimeError('Train and val splitting ratio is invalid.')
+
+        if not split:
+            return ds, None
+
 
         val_len = int(split * len(ds))
         train_len = len(ds) - val_len
@@ -61,6 +68,9 @@ class OCRDataLoaderFactory(BaseDataLoader):
         return trainLoader
 
     def val(self):
+        if self.__valDataset is None:
+            return None
+
         shuffle = self.config['validation']['shuffle']
         valLoader = torchdata.DataLoader(self.__valDataset, num_workers = self.num_workers, batch_size = self.batch_size,
                                          shuffle = shuffle, collate_fn = collate_fn)
@@ -78,6 +88,9 @@ class OCRDataLoaderFactory(BaseDataLoader):
             split = float(split)
         except:
             raise RuntimeError('Train and val splitting ratio is invalid.')
+
+        if not split:
+            return ds, None
 
         val_len = int(split * len(ds))
         train_len = len(ds) - val_len

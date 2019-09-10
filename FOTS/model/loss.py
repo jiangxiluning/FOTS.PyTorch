@@ -12,9 +12,9 @@ class DetectionLoss(nn.Module):
     def forward(self, y_true_cls, y_pred_cls,
                 y_true_geo, y_pred_geo,
                 training_mask):
-        classification_loss = self.__dice_coefficient(y_true_cls, y_pred_cls, training_mask)
+        #classification_loss = self.__dice_coefficient(y_true_cls, y_pred_cls, training_mask)
 
-        #classification_loss = self.__cross_entroy(y_true_cls, y_pred_cls, training_mask)
+        classification_loss = self.__cross_entroy(y_true_cls, y_pred_cls, training_mask)
         # scale classification loss to match the iou loss part
         classification_loss *= 0.01
 
