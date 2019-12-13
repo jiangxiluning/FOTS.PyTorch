@@ -1,4 +1,6 @@
-## Sorry about the pause of updating，since I had more important envent, ICDAR 2019 SROIE, to work on. Now, I am planning to pay off the technical debt. 
+# How to get the theta argument of affine_grid? (Send me email if you need an english version)
+
+![Paper.创意.5.png](https://i.loli.net/2019/12/14/kJ6rKD1C7lMP9xT.png)
 
 ## I have finished the detection branch and am still training the model to verify its correctness. All the features will be published to develop branch, and keep master stable. 
  - ICDAR Dataset 
