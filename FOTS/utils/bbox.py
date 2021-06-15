@@ -163,7 +163,7 @@ class Toolbox:
         return im, (ratio_h, ratio_w)
 
     @staticmethod
-    def detect(score_map, geo_map, timer, score_map_thresh = 0.5, box_thresh = 0.8, nms_thres = 0.1):
+    def detect(score_map, geo_map, timer, score_map_thresh=0.8, box_thresh=0.1, nms_thres=0.2):
         '''1e-5
         restore text boxes from score map and geo map
         :param score_map:
@@ -203,7 +203,9 @@ class Toolbox:
             mask = np.zeros_like(score_map, dtype = np.uint8)
             cv2.fillPoly(mask, box[:8].reshape((-1, 4, 2)).astype(np.int32) // 4, 1)
             boxes[i, 8] = cv2.mean(score_map, mask)[0]
-        #boxes = boxes[boxes[:, 8] > box_thresh]
+        boxes = boxes[boxes[:, 8] > box_thresh]
+
+        boxes = np.clip(boxes, a_min=0.0, a_max=None)
         return boxes, timer
 
     @staticmethod
@@ -294,21 +296,35 @@ class Toolbox:
     @staticmethod
     def predict(im_fn, model, with_img=False, output_dir=None, with_gpu=False):
         im = cv2.imread(im_fn.as_posix())[:, :, ::-1]
-        im_resized, (ratio_h, ratio_w) = Toolbox.resize_image(im)
+        #im_resized, (ratio_h, ratio_w) = Toolbox.resize_image(im)
+
+        h, w, _ = im.shape
+        im_resized = cv2.resize(im, dsize=(640, 640))
+
+        ratio_w = w / 640
+        ratio_h = h / 640
+
         im_resized = im_resized.astype(np.float32)
         im_resized = torch.from_numpy(im_resized)
         if with_gpu:
-            im_resized = im_resized.cuda()
+            im_resized = im_resized.to('cuda:0')
 
         im_resized = im_resized.unsqueeze(0)
         im_resized = im_resized.permute(0, 3, 1, 2)
 
-        score, geometry, preds, boxes, mapping, indices = model.forward(im_resized, None, None)
+        output = model.forward(im_resized, None, None)
+
+        score = output['score_maps']
+        geometry = output['geo_map']
+        preds = output['transcripts']
+        boxes = output['bboxes']
+        mapping = output['mapping']
+        indices = output['indices']
 
         if len(boxes) != 0:
             boxes = boxes[:, :8].reshape((-1, 4, 2))
-            boxes[:, :, 0] /= ratio_w
-            boxes[:, :, 1] /= ratio_h
+            boxes[:, :, 0] *= ratio_w
+            boxes[:, :, 1] *= ratio_h
 
         polys = []
         if len(boxes) != 0:

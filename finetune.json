@@ -1,0 +1,54 @@
+{
+    "name": "finetune_resume",
+    "cuda": true,
+    "gpus": [0, 1],
+    "precision": 32,
+    "backbone_weights": "/home/luning/dev/projects/FOTS.PyTorch/vision-0.9.0",
+    "pretrain": "/home/luning/dev/projects/FOTS.PyTorch/saved/finetune_resume/checkpoints/epoch=584-step=71858.ckpt",
+    "data_loader": {
+        "dataset":"icdar2015",
+        "data_dir": "/data/ocr/det/icdar2015/detection",
+        "batch_size": 3,
+        "shuffle": true,
+        "workers": 8,
+        "max_transcripts_pre_batch": 24
+    },
+    "validation": {
+
+        "scales": [800, 1000, 1333]
+    },
+    "lr_scheduler": {
+        "name": "StepLR",
+        "args":
+        {
+            "gamma": 0.1,
+            "step_size": 2000
+        }
+
+    },
+ 
+    "optimizer_type": "Adam",
+    "optimizer": {
+        "lr": 0.00001
+    },
+    "loss": "FOTSLoss",
+    "metrics": ["fots_metric"],
+    "trainer": {
+        "epochs": 5000,
+        "save_dir": "saved/",
+        "save_freq": 200,
+        "verbosity": 2,
+        "monitor": "hmean",
+        "monitor_mode": "max",
+        "log_every_n_steps": 1,
+        "log_gpu_memory": "all",
+        "overfit_batches": 0.0,
+        "terminate_on_nan": true,
+        "fast_dev_run": false,
+        "check_val_every_n_epoch": 10
+    },
+    "arch": "FOTSModel",
+    "model": {
+        "mode": "united"
+    }
+}

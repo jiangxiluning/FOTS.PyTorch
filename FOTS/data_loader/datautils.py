@@ -63,7 +63,7 @@ def polygon_area(poly):
     return np.sum(edge) / 2.
 
 
-def check_and_validate_polys(polys, tags, xxx_todo_changeme):
+def check_and_validate_polys(polys, xxx_todo_changeme):
     '''
     check so that the text poly is in the same direction,
     and also filter some invalid polygons
@@ -78,8 +78,7 @@ def check_and_validate_polys(polys, tags, xxx_todo_changeme):
     polys[:, :, 1] = np.clip(polys[:, :, 1], 0, h - 1)
 
     validated_polys = []
-    validated_tags = []
-    for poly, tag in zip(polys, tags):
+    for poly in polys:
         p_area = polygon_area(poly)
         if abs(p_area) < 1:
             # print poly
@@ -89,8 +88,7 @@ def check_and_validate_polys(polys, tags, xxx_todo_changeme):
             print('poly in wrong direction')
             poly = poly[(0, 3, 2, 1), :]
         validated_polys.append(poly)
-        validated_tags.append(tag)
-    return np.array(validated_polys), np.array(validated_tags)
+    return np.array(validated_polys)
 
 
 def crop_area(im, polys, tags, crop_background = False, max_tries = 50):
@@ -443,7 +441,7 @@ def restore_rectangle(origin, geometry):
     return restore_rectangle_rbox(origin, geometry)
 
 
-def generate_rbox(im_size, polys, tags):
+def generate_rbox(im_size, polys):
     h, w = im_size
     poly_mask = np.zeros((h, w), dtype = np.uint8)
     score_map = np.zeros((h, w), dtype = np.uint8)
@@ -452,10 +450,8 @@ def generate_rbox(im_size, polys, tags):
     training_mask = np.ones((h, w), dtype = np.uint8)
     rectanges = []
 
-    for poly_idx, poly_tag in enumerate(zip(polys, tags)):
-        poly = poly_tag[0]
-        tag = poly_tag[1]
 
+    for poly_idx, poly in enumerate(polys):
         r = [None, None, None, None]
         for i in range(4):
             r[i] = min(np.linalg.norm(poly[i] - poly[(i + 1) % 4]),
@@ -469,8 +465,6 @@ def generate_rbox(im_size, polys, tags):
         poly_w = min(np.linalg.norm(poly[0] - poly[1]), np.linalg.norm(poly[2] - poly[3]))
         # if min(poly_h, poly_w) < FLAGS.min_text_size:
         if min(poly_h, poly_w) < 10:
-            cv2.fillPoly(training_mask, poly.astype(np.int32)[np.newaxis, :, :], 0)
-        if tag:
             cv2.fillPoly(training_mask, poly.astype(np.int32)[np.newaxis, :, :], 0)
 
         xy_in_poly = np.argwhere(poly_mask == (poly_idx + 1))
@@ -690,6 +684,8 @@ def collate_fn(batch):
     for i in range(bs):
         if img[i] is not None:
             a = torch.from_numpy(img[i])
+            a = a / 255
+            a = (a - np.array([0.485, 0.456, 0.406])) / np.array([0.229, 0.224, 0.225])
             a = a.permute(2, 0, 1)
             images.append(a)
             b = torch.from_numpy(score_map[i])
@@ -710,20 +706,33 @@ def collate_fn(batch):
 
     mapping = []
     texts = []
+    lengths = []
     bboxs = []
+
     for index, gt in enumerate(zip(transcripts, boxes)):
-        for t, b in zip(gt[0], gt[1]):
+        for b in gt[1]:
             mapping.append(index)
-            texts.append(t)
             bboxs.append(b)
+        texts.append(gt[0][0])
+        lengths.extend(gt[0][1])
 
-    mapping = np.array(mapping)
-    texts = np.array(texts)
-    bboxs = np.stack(bboxs, axis=0)
-    bboxs = np.concatenate([bboxs, np.ones((len(bboxs), 1))], axis = 1).astype(np.float32)
-    imagePaths = [p.name for p in imagePaths]
+    mapping = torch.tensor(mapping, dtype=torch.uint8)
+    texts = torch.cat(texts, dim=0)
+    lengths = torch.tensor(lengths, dtype=torch.long)
+    bboxs = torch.from_numpy(np.stack(bboxs))
 
-    return imagePaths, images, score_maps, geo_maps, training_masks, texts, bboxs, mapping
+    # bboxs = np.stack(bboxs, axis=0)
+    # bboxs = np.concatenate([bboxs, np.ones((len(bboxs), 1))], axis = 1).astype(np.float32)
+    # imagePaths = [p.name for p in imagePaths]
+    data = dict(image_names=imagePaths,
+                images=images.float(),
+                score_maps=score_maps.float(),
+                geo_maps=geo_maps.float(),
+                training_masks=training_masks.bool(),
+                transcripts=(texts, lengths),
+                bboxes=bboxs.float(),
+                mapping=mapping.int())
+    return data
 
 
 ## img = bs * 512 * 512 *3

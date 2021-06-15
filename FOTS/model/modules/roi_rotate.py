@@ -17,10 +17,10 @@ class ROIRotate(nn.Module):
         super().__init__()
         self.height = height
 
-    def forward(self, feature_map, boxes, mapping):
+    def forward(self, feature_map: torch.Tensor, boxes: np.ndarray, mapping):
         '''
 
-        :param feature_map:  N * 128 * 128 * 32
+        :param feature_map (torch.Tensor):  N * 32 * 160 * 160
         :param boxes: M * 8
         :param mapping: mapping for image
         :return: N * H * W * C
@@ -32,10 +32,10 @@ class ROIRotate(nn.Module):
         images = []
 
         for img_index, box in zip(mapping, boxes):
-            feature = feature_map[img_index]  # B * H * W * C
+            feature = feature_map[img_index]
             images.append(feature)
 
-            x1, y1, x2, y2, x3, y3, x4, y4 = box / 4  # 521 -> 128
+            x1, y1, x2, y2, x3, y3, x4, y4 = box / 4  # 640 -> 160
 
 
             # show_box(feature, box / 4, 'ffffff', isFeaturemap=True)
@@ -114,13 +114,18 @@ class ROIRotate(nn.Module):
         indices = indices[::-1].copy() # descending order
         lengths = lengths[indices]
         cropped_images_padded = cropped_images_padded[indices]
+        lengths = torch.tensor(lengths)
 
         return cropped_images_padded, lengths, indices
 
     @staticmethod
     def param2theta(param, w, h):
         param = np.vstack([param, [0, 0, 1]])
-        param = np.linalg.inv(param)
+        try:
+            param = np.linalg.inv(param)
+        except Exception as e:
+            print('fuck')
+            raise e
 
         theta = np.zeros([2, 3])
         theta[0, 0] = param[0, 0]

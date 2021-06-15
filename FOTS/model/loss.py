@@ -60,11 +60,13 @@ class RecognitionLoss(nn.Module):
 
     def __init__(self):
         super(RecognitionLoss, self).__init__()
-        self.ctc_loss = CTCLoss() # pred, pred_len, labels, labels_len
+        self.ctc_loss = CTCLoss(zero_infinity=True) # pred, pred_len, labels, labels_len
 
     def forward(self, *input):
         gt, pred = input[0], input[1]
-        loss = self.ctc_loss(pred[0], gt[0], pred[1], gt[1])
+        loss = self.ctc_loss( torch.log_softmax(pred[0], dim=-1), gt[0].cpu(), pred[1], gt[1].cpu())
+        if torch.isnan(loss):
+            raise RuntimeError()
         return loss
 
 
@@ -80,8 +82,6 @@ class FOTSLoss(nn.Module):
                 y_true_geo, y_pred_geo,
                 y_true_recog, y_pred_recog,
                 training_mask):
-
-        
 
         if self.mode == 'recognition':
             recognition_loss = self.recogitionLoss(y_true_recog, y_pred_recog)
@@ -100,4 +100,4 @@ class FOTSLoss(nn.Module):
                     import ipdb; ipdb.set_trace()
 
         #recognition_loss = recognition_loss.to(detection_loss.device)
-        return reg_loss, cls_loss, recognition_loss
+        return dict(reg_loss=reg_loss, cls_loss=cls_loss, recog_loss=recognition_loss)

@@ -1,62 +1,82 @@
 import argparse
 import json
-import logging
+from loguru import logger
 import os
 import pathlib
 
-from FOTS.data_loader import SynthTextDataLoaderFactory
-from FOTS.data_loader import OCRDataLoaderFactory
-from FOTS.data_loader import ICDAR
-from FOTS.logger import Logger
-from FOTS.model.model import *
+from pytorch_lightning.trainer import Trainer
+from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.loggers import WandbLogger
+from easydict import EasyDict
+
+from FOTS.model.model import FOTSModel
 from FOTS.model.loss import *
 from FOTS.model.metric import *
-from FOTS.trainer import Trainer
-from FOTS.utils.bbox import Toolbox
-
-logging.basicConfig(level=logging.DEBUG, format='')
+from FOTS.data_loader.data_module import SynthTextDataModule, ICDARDataModule
 
 
-def main(config, resume):
-    train_logger = Logger()
+def main(config, resume: bool):
 
-    if config['data_loader']['dataset'] == 'icdar2015':
-        # ICDAR 2015
-        data_root = pathlib.Path(config['data_loader']['data_dir'])
-        ICDARDataset2015 = ICDAR(data_root, year='2015')
-        data_loader = OCRDataLoaderFactory(config, ICDARDataset2015)
-        train = data_loader.train()
-        val = data_loader.val()
-    elif config['data_loader']['dataset'] == 'synth800k':
-        data_loader = SynthTextDataLoaderFactory(config)
-        train = data_loader.train()
-        val = data_loader.val()
+    model = FOTSModel(config)
+    if resume:
+        assert pathlib.Path(config.pretrain).exists()
+        resume_ckpt = config.pretrain
+        logger.info('Resume training from: {}'.format(config.pretrain))
+    else:
+        if config.pretrain:
+            assert pathlib.Path(config.pretrain).exists()
+            logger.info('Finetune with: {}'.format(config.pretrain))
+            model.load_from_checkpoint(config.pretrain, config=config, map_location='cpu')
+            resume_ckpt = None
+        else:
+            resume_ckpt = None
 
-    os.environ['CUDA_VISIBLE_DEVICES'] = ','.join([str(i) for i in config['gpus']])
-    model = eval(config['arch'])(config)
-    model.summary()
+    if config.data_loader.dataset == 'synth800k':
+        data_module = SynthTextDataModule(config)
+    else:
+        data_module = ICDARDataModule(config)
+    data_module.setup()
 
-    loss = eval(config['loss'])(config)
-    metrics = [eval(metric) for metric in config['metrics']]
+    root_dir = str(pathlib.Path(config.trainer.save_dir).absolute() / config.name)
+    checkpoint_callback = ModelCheckpoint(dirpath=root_dir + '/checkpoints', period=1)
+    wandb_dir = pathlib.Path(root_dir) / 'wandb'
+    if not wandb_dir.exists():
+        wandb_dir.mkdir(parents=True, exist_ok=True)
+    wandb_logger = WandbLogger(name=config.name,
+                               project='FOTS',
+                               config=config,
+                               save_dir=root_dir)
+    if not config.cuda:
+        gpus = 0
+    else:
+        gpus = config.gpus
 
-    trainer = Trainer(model, loss, metrics,
-                      resume=resume,
-                      config=config,
-                      data_loader=train,
-                      valid_data_loader=val,
-                      train_logger=train_logger,
-                      toolbox = Toolbox)
-
-    trainer.train()
+    trainer = Trainer(
+        logger=wandb_logger,
+        callbacks=[checkpoint_callback],
+        max_epochs=config.trainer.epochs,
+        default_root_dir=root_dir,
+        gpus=gpus,
+        accelerator='ddp',
+        benchmark=True,
+        sync_batchnorm=True,
+        precision=config.precision,
+        log_gpu_memory=config.trainer.log_gpu_memory,
+        log_every_n_steps=config.trainer.log_every_n_steps,
+        overfit_batches=config.trainer.overfit_batches,
+        weights_summary='full',
+        terminate_on_nan=config.trainer.terminate_on_nan,
+        fast_dev_run=config.trainer.fast_dev_run,
+        check_val_every_n_epoch=config.trainer.check_val_every_n_epoch,
+        resume_from_checkpoint=resume_ckpt)
+    trainer.fit(model=model, datamodule=data_module)
 
 
 if __name__ == '__main__':
-    logger = logging.getLogger()
-
     parser = argparse.ArgumentParser(description='PyTorch Template')
     parser.add_argument('-c', '--config', default=None, type=str,
                         help='config file path (default: None)')
-    parser.add_argument('-r', '--resume', default=None, type=str,
+    parser.add_argument('-r', '--resume', action='store_true',
                         help='path to latest checkpoint (default: None)')
 
     args = parser.parse_args()
@@ -65,12 +85,12 @@ if __name__ == '__main__':
     if args.config is not None:
         config = json.load(open(args.config))
         path = os.path.join(config['trainer']['save_dir'], config['name'])
-        #assert not os.path.exists(path), "Path {} already exists!".format(path)
+        # assert not os.path.exists(path), "Path {} already exists!".format(path)
     else:
         if args.resume is not None:
             logger.warning('Warning: --config overridden by --resume')
-            config = torch.load(args.resume, map_location = 'cpu')['config']
+            config = torch.load(args.resume, map_location='cpu')['config']
 
     assert config is not None
-
+    config = EasyDict(config)
     main(config, args.resume)

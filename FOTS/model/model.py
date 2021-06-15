@@ -1,24 +1,32 @@
-from ..base import BaseModel
+import math
+from typing import List, Any
+
+import numpy as np
 import torch.nn as nn
 import torch
-import math
+import torch.optim as optim
+from torch.optim.lr_scheduler import StepLR
+from pytorch_lightning.core import LightningModule
+
+from ..base import BaseModel
 from .modules import shared_conv
 from .modules.roi_rotate import ROIRotate
 from .modules.crnn import CRNN
-from .keys import keys
-import pretrainedmodels as pm
-import torch.optim as optim
+from ..utils.util import keys
+from .loss import FOTSLoss
 from ..utils.bbox import Toolbox
-import numpy as np
+from ..utils.post_processor import PostProcessor
+from ..utils.util import visualize
 
-
-class FOTSModel:
+class FOTSModel(LightningModule):
 
     def __init__(self, config):
+        super(FOTSModel, self).__init__()
+        self.config = config
 
         self.mode = config['model']['mode']
 
-        bbNet =  pm.__dict__['resnet50'](pretrained='imagenet') # resnet50 in paper
+        bbNet = torch.hub.load(self.config.backbone_weights, 'resnet50', pretrained=True, source='local')
         self.sharedConv = shared_conv.SharedConv(bbNet, config)
 
         nclass = len(keys) + 1
@@ -26,82 +34,49 @@ class FOTSModel:
         self.detector = Detector(config)
         self.roirotate = ROIRotate()
 
-    def parallelize(self):
-        self.sharedConv = torch.nn.DataParallel(self.sharedConv)
-        self.recognizer = torch.nn.DataParallel(self.recognizer)
-        self.detector = torch.nn.DataParallel(self.detector)
-        #self.roirotate = torch.nn.DataParallel(self.roirotate)
+        self.max_transcripts_pre_batch = self.config.data_loader.max_transcripts_pre_batch
 
-    def to(self, device):
-        self.sharedConv = self.sharedConv.to(device)
-        self.detector = self.detector.to(device)
-        self.recognizer = self.recognizer.to(device)
+        self.loss = FOTSLoss(config=config)
 
-    def summary(self):
-        self.sharedConv.summary()
-        self.detector.summary()
-        self.recognizer.summary()
+        self.postprocessor = PostProcessor()
 
-    def optimize(self, optimizer_type, params):
-        optimizer = getattr(optim, optimizer_type)(
-            [
-                {'params': self.sharedConv.parameters()},
-                {'params': self.detector.parameters()},
-                {'params': self.recognizer.parameters()},
-            ],
-            **params
+    def configure_optimizers(self):
+        optimizer = getattr(optim, self.config.optimizer_type)(
+            self.parameters(),
+            **self.config.optimizer
         )
-        return optimizer
 
-    def train(self):
-        self.sharedConv.train()
-        self.detector.train()
-        self.recognizer.train()
-
-    def eval(self):
-        self.sharedConv.eval()
-        self.detector.eval()
-        self.recognizer.eval()
-
-    def state_dict(self):
-        sd = {
-            '0': self.sharedConv.state_dict(),
-            '1': self.detector.state_dict(),
-            '2': self.recognizer.state_dict()
-        }
-        return sd
-
-    def load_state_dict(self, sd):
-        self.sharedConv.load_state_dict(sd['0'])
-        self.detector.load_state_dict(sd['1'])
-        self.recognizer.load_state_dict(sd['2'])
-
-    @property
-    def training(self):
-        return self.sharedConv.training and self.detector.training and self.recognizer.training
-
-    def forward(self, *input):
-        '''
-
-        :param input:
-        :return:
-        '''
-        image, boxes, mapping = input
-
-        if image.is_cuda:
-            device = image.get_device()
+        if not self.config.lr_scheduler.name:
+            return optimizer
         else:
-            device = torch.device('cpu')
+            if self.config.lr_scheduler.name == 'StepLR':
+                lr_scheduler = StepLR(optimizer, **self.config.lr_scheduler.args)
+            else:
+                raise NotImplementedError()
+            return dict(optimizer=optimizer, lr_scheduler=lr_scheduler)
 
-
-        feature_map = self.sharedConv.forward(image)
+    def forward(self, images, boxes=None, mapping=None):
+        feature_map = self.sharedConv.forward(images)
 
         score_map, geo_map = self.detector(feature_map)
 
         if self.training:
+            boxes = boxes.cpu().numpy()
             rois, lengths, indices = self.roirotate(feature_map, boxes[:, :8], mapping)
             pred_mapping = mapping
             pred_boxes = boxes
+
+            preds = self.recognizer(rois, lengths)
+            preds = preds.permute(1, 0, 2) # B, T, C -> T, B, C
+
+            data = dict(score_maps=score_map,
+                        geo_maps=geo_map,
+                        transcripts=(preds, lengths),
+                        bboxes=pred_boxes,
+                        mapping=pred_mapping,
+                        indices=indices)
+            return data
+
         else:
             score = score_map.permute(0, 2, 3, 1)
             geometry = geo_map.permute(0, 2, 3, 1)
@@ -126,14 +101,100 @@ class FOTSModel:
                 pred_boxes = np.concatenate(pred_boxes)
                 pred_mapping = np.concatenate(pred_mapping)
                 rois, lengths, indices = self.roirotate(feature_map, pred_boxes[:, :8], pred_mapping)
+
+                preds = self.recognizer(rois, lengths)
+                preds = preds.permute(1, 0, 2) # B, T, C -> T, B, C
+
+                data = dict(score_maps=score_map,
+                            geo_maps=geo_map,
+                            transcripts=(preds, lengths),
+                            bboxes=pred_boxes,
+                            mapping=pred_mapping,
+                            indices=indices)
+                return data
             else:
-                return score_map, geo_map, (None, None), pred_boxes, pred_mapping, None
+                data = dict(score_maps=score_map,
+                            geo_maps=geo_map,
+                            transcripts=(None, None),
+                            bboxes=None,
+                            mapping=None,
+                            indices=None)
 
-        lengths = torch.tensor(lengths).to(device)
-        preds = self.recognizer(rois, lengths)
-        preds = preds.permute(1, 0, 2) # B, T, C -> T, B, C
+                return data
 
-        return score_map, geo_map, (preds, lengths), pred_boxes, pred_mapping, indices
+    def training_step(self, *args, **kwargs):
+        input_data = args[0]
+        bboxes = input_data['bboxes']
+        mapping = input_data['mapping']
+        sampling_indices = torch.randperm(bboxes.size(0))[:self.max_transcripts_pre_batch]
+        bboxes = bboxes[sampling_indices]
+        mapping = mapping[sampling_indices]
+
+        output = self.forward(images=input_data['images'],
+                              boxes=bboxes,
+                              mapping=mapping)
+
+        sorted_indices = output['indices']
+        y_true_recog = (input_data['transcripts'][0][sampling_indices][sorted_indices],
+                        input_data['transcripts'][1][sampling_indices][sorted_indices])
+
+        loss_dict = self.loss(y_true_cls=input_data['score_maps'],
+                              y_pred_cls=output['score_maps'],
+                              y_true_geo=input_data['geo_maps'],
+                              y_pred_geo=output['geo_maps'],
+                              y_true_recog=y_true_recog,
+                              y_pred_recog=output['transcripts'],
+                              training_mask=input_data['training_masks'])
+
+        loss = loss_dict['reg_loss'] + loss_dict['cls_loss'] + loss_dict['recog_loss']
+        self.log('loss', loss, logger=True)
+        self.log('reg_loss', loss_dict['reg_loss'], logger=True, prog_bar=True)
+        self.log('cls_loss', loss_dict['cls_loss'], logger=True, prog_bar=True)
+        self.log('recog_loss', loss_dict['recog_loss'], logger=True, prog_bar=True)
+
+        return loss
+
+    def validation_step(self, *args, **kwargs):
+        input_data = args[0]
+        output = self.forward(images=input_data['images'])
+        output['images_names'] = input_data['image_names']
+        return output
+
+    def validation_step_end(self, *args, **kwargs):
+        output: dict = args[0]
+
+        boxes_list = []
+        transcripts_list = []
+
+        pred_boxes = output['bboxes']
+        pred_mapping = output['mapping']
+        image_names = output['images_names']
+
+        if pred_boxes is None:
+            return dict(image_names=image_names, boxes_list=boxes_list, transcripts_list=transcripts_list)
+
+        print(pred_boxes)
+        return
+        # pred_transcripts, pred_lengths = output['transcripts']
+        # indices = output['indices']
+        # # restore order
+        # # pred_transcripts = pred_transcripts[:, ::-1, :][indices[::-1]]
+        # # pred_lengths = pred_lengths[:, ::-1, :][indices[::-1]]
+        #
+        # for index in range(len(image_names)):
+        #     selected_indices = np.argwhere(pred_mapping == index)
+        #     boxes = pred_boxes[selected_indices]
+        #     transcripts = pred_transcripts[:, selected_indices, ]
+        #     lengths = pred_lengths[selected_indices]
+        #     boxes, transcripts = self.postprocessor(boxes=boxes, transcripts=(transcripts, lengths))
+        #     boxes_list.append(boxes)
+        #     transcripts_list.append(transcripts)
+        #     image_path = '/media/mydisk/ocr/det/icdar2015/detection/test/imgs/' + image_names[index]
+        #     visualize(image_path, boxes, transcripts)
+        #
+        #     # visualize_box
+        #
+        # return dict(image_names=image_names, boxes_list=boxes_list, transcripts_list=transcripts_list)
 
 
 class Recognizer(BaseModel):
@@ -150,9 +211,9 @@ class Detector(BaseModel):
 
     def __init__(self, config):
         super().__init__(config)
-        self.scoreMap = nn.Conv2d(32, 1, kernel_size = 1)
-        self.geoMap = nn.Conv2d(32, 4, kernel_size = 1)
-        self.angleMap = nn.Conv2d(32, 1, kernel_size = 1)
+        self.scoreMap = nn.Conv2d(32, 1, kernel_size=1)
+        self.geoMap = nn.Conv2d(32, 4, kernel_size=1)
+        self.angleMap = nn.Conv2d(32, 1, kernel_size=1)
 
     def forward(self, *input):
         final,  = input
@@ -161,8 +222,8 @@ class Detector(BaseModel):
         score = torch.sigmoid(score)
 
         geoMap = self.geoMap(final)
-        # 出来的是 normalise 到 0 -1 的值是到上下左右的距离，但是图像他都缩放到  512 * 512 了，但是 gt 里是算的绝对数值来的
-        geoMap = torch.sigmoid(geoMap) * 512
+        # 出来的是 normalise 到 0 -1 的值是到上下左右的距离，但是图像他都缩放到  640 * 640 了，但是 gt 里是算的绝对数值来的
+        geoMap = torch.sigmoid(geoMap) * 640  # TODO: 640 is the image size
 
         angleMap = self.angleMap(final)
         angleMap = (torch.sigmoid(angleMap) - 0.5) * math.pi / 2

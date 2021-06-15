@@ -64,7 +64,7 @@ class BaseTrainer:
         self.start_epoch = 1
         self.checkpoint_dir = os.path.join(config['trainer']['save_dir'], self.name)
         ensure_dir(self.checkpoint_dir)
-        json.dump(config, open(os.path.join(self.checkpoint_dir, 'config.json'), 'w'),
+        json.dump(config, open(os.path.join(self.checkpoint_dir, 'pretrain.json'), 'w'),
                   indent=4, sort_keys=False)
         if resume:
             self._resume_checkpoint(resume)
