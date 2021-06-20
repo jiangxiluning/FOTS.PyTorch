@@ -32,7 +32,8 @@ class FOTSModel(LightningModule):
         bbNet = torch.hub.load(self.config.backbone_weights, 'resnet50', pretrained=True, source='local')
         self.sharedConv = shared_conv.SharedConv(bbNet, config)
 
-        nclass = len(keys) + 1
+        # 'blank' and '<other>'
+        nclass = len(keys) + 2
         self.recognizer = Recognizer(nclass, config)
         self.detector = Detector(config)
         #self.roirotate = ROIRotate()
@@ -123,9 +124,9 @@ class FOTSModel(LightningModule):
 
                         if h > w:
                             min_rect_angle = min_rect_angle + 180
-                            roi.append([i, center[0], center[1], w, h, min_rect_angle])
+                            roi.append([i, center[0], center[1], w, h, -min_rect_angle])
                         else:
-                            roi.append([i, center[0], center[1], h, w, min_rect_angle])
+                            roi.append([i, center[0], center[1], h, w, -min_rect_angle])
 
                     pred_boxes.append(bb)
                     rois.append(np.stack(roi))

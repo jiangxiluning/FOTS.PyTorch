@@ -4,7 +4,7 @@
     "gpus": [0, 1],
     "precision": 32,
     "backbone_weights": "/home/luning/dev/projects/FOTS.PyTorch/vision-0.9.0",
-    "pretrain": "",
+    "pretrain": "/home/luning/dev/projects/FOTS.PyTorch/saved/pretrain/checkpoints/epoch=0-step=27208.ckpt",
     "data_loader": {
         "dataset":"synth800k",
         "data_dir": "/home/luning/dev/data/SynthText800k/detection/",

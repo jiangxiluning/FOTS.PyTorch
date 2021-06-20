@@ -1,10 +1,10 @@
 {
-    "name": "united",
+    "name": "finetune",
     "cuda": true,
     "gpus": [0, 1],
     "precision": 32,
     "backbone_weights": "/home/luning/dev/projects/FOTS.PyTorch/vision-0.9.0",
-    "pretrain": "/home/luning/dev/projects/FOTS.PyTorch/saved/detection_icdar_only/checkpoints/epoch=792-step=49938.ckpt",
+    "pretrain": "",
     "data_loader": {
         "dataset":"icdar2015",
         "data_dir": "/data/ocr/det/icdar2015/detection",

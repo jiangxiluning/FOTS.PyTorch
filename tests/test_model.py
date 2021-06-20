@@ -279,13 +279,19 @@ def test_rroi():
         w = math.sqrt(dw[0] * dw[0] + dw[1] * dw[1])                    # 宽度和高度
         h = math.sqrt(dh[0] * dh[0] + dh[1] * dh[1])  + random.randint(-2, 2)
 
-        angle_gt = ( math.atan2((gt[2][1] - gt[1][1]), gt[2][0] - gt[1][0]) + math.atan2((gt[3][1] - gt[0][1]), gt[3][0] - gt[0][0]) ) / 2
+        angle_gt = (math.atan2((gt[2][1] - gt[1][1]), gt[2][0] - gt[1][0]) + math.atan2((gt[3][1] - gt[0][1]), gt[3][0] - gt[0][0]) ) / 2
         angle_gt = -angle_gt / 3.1415926535 * 180                       # 需要加个负号
 
         rr = cv2.minAreaRect(gt)
-        print(rr)
+        center = rr[0]
+        w, h = rr[1]
+        angle = rr[2]
+        if w < h:
+            angle = angle + 180
 
-        roi.append([0, center[0], center[1], h, w, angle_gt])           # roi的参数
+
+        # roi.append([0, center[0], center[1], h, w, angle_gt])           # roi的参数
+        roi.append([0, center[0], center[1], h, w, -angle])           # roi的参数
 
     rois = torch.tensor(roi)
     rois = rois.to(torch.float).cuda()

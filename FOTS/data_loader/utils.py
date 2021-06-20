@@ -346,9 +346,9 @@ def get_score_geo(img, vertices, labels, scale, length):
 
         if h > w:
             min_rect_angle = min_rect_angle + 180
-            rois.append([center[0], center[1], w, h, min_rect_angle])
+            rois.append([center[0], center[1], w, h, -min_rect_angle])
         else:
-            rois.append([center[0], center[1], h, w, min_rect_angle])
+            rois.append([center[0], center[1], h, w, -min_rect_angle])
 
         if labels[i] == 0:
             ignored_polys.append(np.around(scale * vertice.reshape((4, 2))).astype(np.int32))
