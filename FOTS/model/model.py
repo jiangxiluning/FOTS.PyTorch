@@ -132,17 +132,26 @@ class FOTSModel(LightningModule):
                     rois.append(np.stack(roi))
 
             if self.mode == 'detection':
+
+                if len(pred_boxes) > 0:
+                    pred_boxes = torch.as_tensor(np.concatenate(pred_boxes), dtype=feature_map.dtype, device=feature_map.device)
+                    rois = torch.as_tensor(np.concatenate(rois), dtype=feature_map.dtype, device=feature_map.device)
+                    pred_mapping = rois[:, 0]
+                else:
+                    pred_boxes = None
+                    pred_mapping = None
+
                 data = dict(score_maps=score_map,
                             geo_maps=geo_map,
                             transcripts=(None, None),
                             bboxes=pred_boxes,
-                            mapping=None,
+                            mapping=pred_mapping,
                             indices=None)
                 return data
 
             if len(rois) > 0:
-                pred_boxes = torch.from_numpy(np.concatenate(pred_boxes)).to(score_map.device)
-                rois = torch.from_numpy(np.concatenate(rois)).to(score_map.device)
+                pred_boxes = torch.as_tensor(np.concatenate(pred_boxes), dtype=feature_map.dtype, device=feature_map.device)
+                rois = torch.as_tensor(np.concatenate(rois), dtype=feature_map.dtype, device=feature_map.device)
                 pred_mapping = rois[:, 0]
 
                 ratios = rois[:, 4] / rois[:, 3]
@@ -217,9 +226,10 @@ class FOTSModel(LightningModule):
         pred_mapping = output['mapping']
         image_names = output['images_names']
 
+        self.log('pred_boxes', pred_boxes.shape[0] if pred_boxes is not None else 0, prog_bar=True)
+
         if pred_boxes is None:
             return dict(image_names=image_names, boxes_list=boxes_list, transcripts_list=transcripts_list)
-        self.log('pred_boxes', len(pred_boxes) if pred_boxes else 0, prog_bar=True)
 
         # pred_transcripts, pred_lengths = output['transcripts']
         # indices = output['indices']

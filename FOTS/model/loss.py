@@ -144,8 +144,7 @@ class FOTSLoss(nn.Module):
                                                 y_true_geo, y_pred_geo, training_mask)
             recognition_loss = torch.tensor([0.], device=reg_loss.device)
         elif self.mode == 'united':
-            reg_loss, cls_loss = self.detectionLoss(y_true_cls, y_pred_cls,
-                                                y_true_geo, y_pred_geo, training_mask)
+            reg_loss, cls_loss = self.detectionLoss(y_true_cls, y_pred_cls, y_true_geo, y_pred_geo, training_mask)
             if y_true_recog:
                 recognition_loss = self.recogitionLoss(y_true_recog, y_pred_recog)
                 if recognition_loss <0 :
