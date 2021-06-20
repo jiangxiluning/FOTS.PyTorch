@@ -8,18 +8,14 @@ class BidirectionalLSTM(nn.Module):
         self.rnn = nn.LSTM(nIn, nHidden, bidirectional=True)
         self.embedding = nn.Linear(nHidden * 2, nOut)
 
-    def forward(self, input, lengths):
-        self.rnn.flatten_parameters()
-        total_length = input.size(1)
-        packed_input = torch.nn.utils.rnn.pack_padded_sequence(input, lengths, batch_first=True)
-        recurrent, _ = self.rnn(packed_input)  # [T, b, h * 2]
-        padded_input, _ = torch.nn.utils.rnn.pad_packed_sequence(recurrent, total_length=total_length, batch_first=True)
+    def forward(self, input, lengths=None):
+        # self.rnn.flatten_parameters()
+        hidden, _ = self.rnn(input)  # [T, b, h * 2]
 
-        b, T, h = padded_input.size()
-        t_rec = padded_input.contiguous().view(T * b, h)
-        output = self.embedding(t_rec)  # [T * b, nOut]
-        output = output.view(b, T, -1)
-
+        hidden = torch.layer_norm(hidden, normalized_shape=hidden.shape[1:])
+        b, t, h = hidden.size()
+        output = self.embedding(hidden.view(t*b, h))
+        output = output.view(b, t, -1)
         return output
 
 

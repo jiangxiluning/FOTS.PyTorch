@@ -26,10 +26,16 @@ from .transforms import Transform
 from .datautils import *
 from ..utils.util import str_label_converter
 
+from . import utils as data_utils
+
 
 class SynthTextDataset(Dataset):
 
-    def __init__(self, data_root, transform=None, vis=False):
+    def __init__(self, data_root,
+                 scale: float = 0.25,
+                 size: int = 640,
+                 transform=None,
+                 vis=False):
         self.dataRoot = pathlib.Path(data_root)
         if not self.dataRoot.exists():
             raise FileNotFoundError('Dataset folder is not exist.')
@@ -47,6 +53,8 @@ class SynthTextDataset(Dataset):
         self.transform: Transform = transform
 
         self.vis = vis
+        self.scale = scale
+        self.size = size
 
     def visualize(self,
                   image_name: str,
@@ -116,15 +124,14 @@ class SynthTextDataset(Dataset):
                         return self.__getitem__(np.random.randint(0, len(self)))
 
                 polys = np.stack([poly.coords for poly in text_polys])
-                score_map, geo_map, training_mask, rectangles = generate_rbox(im.shape[:2], polys)
+                score_map, geo_map, training_mask, rectangles, rois = data_utils.get_score_geo(im, polys,
+                                                                                               np.ones(polys.shape[0]),
+                                                                                               self.scale, self.size)
 
                 # predict 出来的feature map 是 128 * 128， 所以 gt 需要取 /4 步长
                 image = im[:, :, ::-1].astype(np.float32)  # bgr -> rgb
-                score_map = score_map[::4, ::4, np.newaxis].astype(np.float32)
-                geo_map = geo_map[::4, ::4, :].astype(np.float32)
-                training_mask = training_mask[::4, ::4, np.newaxis].astype(np.float32)
-
                 assert len(transcripts) == len(rectangles)
+
                 if len(transcripts) == 0:
                     raise RuntimeError('No text found.')
 
@@ -134,15 +141,19 @@ class SynthTextDataset(Dataset):
                                    score_map=score_map,
                                    training_mask=training_mask,
                                    image_name=image_path.stem)
+
                 transcripts = str_label_converter.encode(transcripts)
 
-                return image_path.as_posix(), image, score_map, geo_map, training_mask, transcripts, rectangles
+                image = normalize_iamge(image)
+
+                return image_path.as_posix(), image, score_map, geo_map, training_mask, transcripts, rectangles, rois
             else:
                 return self.__getitem__(np.random.randint(0, len(self)))
 
-        except Exception:
-            loguru.logger.warning('Something wrong with data processing. Resample.')
-            return self.__getitem__(np.random.randint(0, len(self)))
+        except Exception as e:
+            # loguru.logger.warning('Something wrong with data processing. Resample.')
+            # return self.__getitem__(np.random.randint(0, len(self)))
+            raise e
 
     def __len__(self):
         return len(self.imageNames)

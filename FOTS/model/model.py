@@ -1,6 +1,7 @@
 import math
 from typing import List, Any
 
+import cv2
 import numpy as np
 import torch.nn as nn
 import torch
@@ -17,6 +18,8 @@ from .loss import FOTSLoss
 from ..utils.bbox import Toolbox
 from ..utils.post_processor import PostProcessor
 from ..utils.util import visualize
+from ..rroi_align.functions.rroi_align import RRoiAlignFunction
+from ..utils.detect import get_boxes
 
 class FOTSModel(LightningModule):
 
@@ -32,7 +35,10 @@ class FOTSModel(LightningModule):
         nclass = len(keys) + 1
         self.recognizer = Recognizer(nclass, config)
         self.detector = Detector(config)
-        self.roirotate = ROIRotate()
+        #self.roirotate = ROIRotate()
+        self.roirotate = RRoiAlignFunction()
+        self.pooled_height = 8
+        self.spatial_scale = 1.0
 
         self.max_transcripts_pre_batch = self.config.data_loader.max_transcripts_pre_batch
 
@@ -55,18 +61,38 @@ class FOTSModel(LightningModule):
                 raise NotImplementedError()
             return dict(optimizer=optimizer, lr_scheduler=lr_scheduler)
 
-    def forward(self, images, boxes=None, mapping=None):
+    def forward(self, images, boxes=None, rois=None):
         feature_map = self.sharedConv.forward(images)
 
         score_map, geo_map = self.detector(feature_map)
 
         if self.training:
-            boxes = boxes.cpu().numpy()
-            rois, lengths, indices = self.roirotate(feature_map, boxes[:, :8], mapping)
-            pred_mapping = mapping
+            if self.mode == 'detection':
+                data = dict(score_maps=score_map,
+                            geo_maps=geo_map,
+                            transcripts=(None, None),
+                            bboxes=boxes,
+                            mapping=None,
+                            indices=None)
+                return data
+
+            # there are some hard samples, ###
+
+            # for memory concern, we fix the number of transcript to train
+            sampled_indices = torch.randperm(rois.size(0))[:self.max_transcripts_pre_batch]
+            rois = rois[sampled_indices]
+
+            ratios = rois[:, 4] / rois[:, 3]
+            maxratio = ratios.max().item()
+            pooled_width = np.ceil(self.pooled_height * maxratio).astype(int)
+
+            roi_features = self.roirotate.apply(feature_map, rois, self.pooled_height, pooled_width, self.spatial_scale)
+            lengths = torch.ceil(self.pooled_height * ratios)
+
+            pred_mapping = rois[:, 0]
             pred_boxes = boxes
 
-            preds = self.recognizer(rois, lengths)
+            preds = self.recognizer(roi_features, lengths.cpu())
             preds = preds.permute(1, 0, 2) # B, T, C -> T, B, C
 
             data = dict(score_maps=score_map,
@@ -74,43 +100,66 @@ class FOTSModel(LightningModule):
                         transcripts=(preds, lengths),
                         bboxes=pred_boxes,
                         mapping=pred_mapping,
-                        indices=indices)
+                        indices=sampled_indices)
             return data
 
         else:
-            score = score_map.permute(0, 2, 3, 1)
-            geometry = geo_map.permute(0, 2, 3, 1)
-            score = score.detach().cpu().numpy()
-            geometry = geometry.detach().cpu().numpy()
-
-            timer = {'net': 0, 'restore': 0, 'nms': 0}
+            score = score_map.cpu().numpy()
+            geometry = geo_map.cpu().numpy()
 
             pred_boxes = []
-            pred_mapping = []
+            rois = []
             for i in range(score.shape[0]):
-                s = score[i, :, :, 0]
-                g = geometry[i, :, :, ]
-                bb, _ = Toolbox.detect(score_map=s, geo_map=g, timer=timer)
-                bb_size = bb.shape[0]
+                s = score[i]
+                g = geometry[i]
+                bb = get_boxes(s, g, score_thresh=0.9)
+                if bb is not None:
+                    roi = []
+                    for _, gt in enumerate(bb[:, :8].reshape(-1, 4, 2)):
+                        rr = cv2.minAreaRect(gt)
+                        center = rr[0]
+                        (w, h) = rr[1]
+                        min_rect_angle = rr[2]
 
-                if len(bb) > 0:
-                    pred_mapping.append(np.array([i] * bb_size))
+                        if h > w:
+                            min_rect_angle = min_rect_angle + 180
+                            roi.append([i, center[0], center[1], w, h, min_rect_angle])
+                        else:
+                            roi.append([i, center[0], center[1], h, w, min_rect_angle])
+
                     pred_boxes.append(bb)
+                    rois.append(np.stack(roi))
 
-            if len(pred_mapping) > 0:
-                pred_boxes = np.concatenate(pred_boxes)
-                pred_mapping = np.concatenate(pred_mapping)
-                rois, lengths, indices = self.roirotate(feature_map, pred_boxes[:, :8], pred_mapping)
+            if self.mode == 'detection':
+                data = dict(score_maps=score_map,
+                            geo_maps=geo_map,
+                            transcripts=(None, None),
+                            bboxes=pred_boxes,
+                            mapping=None,
+                            indices=None)
+                return data
 
-                preds = self.recognizer(rois, lengths)
-                preds = preds.permute(1, 0, 2) # B, T, C -> T, B, C
+            if len(rois) > 0:
+                pred_boxes = torch.from_numpy(np.concatenate(pred_boxes)).to(score_map.device)
+                rois = torch.from_numpy(np.concatenate(rois)).to(score_map.device)
+                pred_mapping = rois[:, 0]
+
+                ratios = rois[:, 4] / rois[:, 3]
+                maxratio = ratios.max().item()
+                pooled_width = np.ceil(self.pooled_height * maxratio).astype(int)
+                roi_features = self.roirotate.apply(feature_map, rois, self.pooled_height, pooled_width, self.spatial_scale)
+
+                lengths = torch.ceil(self.pooled_height * ratios)
+
+                preds = self.recognizer(roi_features, lengths.cpu())
+                preds = preds.permute(1, 0, 2)  # B, T, C -> T, B, C
 
                 data = dict(score_maps=score_map,
                             geo_maps=geo_map,
                             transcripts=(preds, lengths),
                             bboxes=pred_boxes,
                             mapping=pred_mapping,
-                            indices=indices)
+                            indices=None)
                 return data
             else:
                 data = dict(score_maps=score_map,
@@ -125,18 +174,15 @@ class FOTSModel(LightningModule):
     def training_step(self, *args, **kwargs):
         input_data = args[0]
         bboxes = input_data['bboxes']
-        mapping = input_data['mapping']
-        sampling_indices = torch.randperm(bboxes.size(0))[:self.max_transcripts_pre_batch]
-        bboxes = bboxes[sampling_indices]
-        mapping = mapping[sampling_indices]
+        rois = input_data['rois']
 
         output = self.forward(images=input_data['images'],
                               boxes=bboxes,
-                              mapping=mapping)
+                              rois=rois)
 
-        sorted_indices = output['indices']
-        y_true_recog = (input_data['transcripts'][0][sampling_indices][sorted_indices],
-                        input_data['transcripts'][1][sampling_indices][sorted_indices])
+        sampled_indices = output['indices']
+        y_true_recog = (input_data['transcripts'][0][sampled_indices],
+                        input_data['transcripts'][1][sampled_indices])
 
         loss_dict = self.loss(y_true_cls=input_data['score_maps'],
                               y_pred_cls=output['score_maps'],
@@ -172,9 +218,8 @@ class FOTSModel(LightningModule):
 
         if pred_boxes is None:
             return dict(image_names=image_names, boxes_list=boxes_list, transcripts_list=transcripts_list)
+        self.log('pred_boxes', len(pred_boxes) if pred_boxes else 0, prog_bar=True)
 
-        print(pred_boxes)
-        return
         # pred_transcripts, pred_lengths = output['transcripts']
         # indices = output['indices']
         # # restore order
@@ -214,6 +259,7 @@ class Detector(BaseModel):
         self.scoreMap = nn.Conv2d(32, 1, kernel_size=1)
         self.geoMap = nn.Conv2d(32, 4, kernel_size=1)
         self.angleMap = nn.Conv2d(32, 1, kernel_size=1)
+        self.size = config.data_loader.size
 
     def forward(self, *input):
         final,  = input
@@ -223,10 +269,10 @@ class Detector(BaseModel):
 
         geoMap = self.geoMap(final)
         # 出来的是 normalise 到 0 -1 的值是到上下左右的距离，但是图像他都缩放到  640 * 640 了，但是 gt 里是算的绝对数值来的
-        geoMap = torch.sigmoid(geoMap) * 640  # TODO: 640 is the image size
+        geoMap = torch.sigmoid(geoMap) * self.size  # TODO: 640 is the image size
 
         angleMap = self.angleMap(final)
-        angleMap = (torch.sigmoid(angleMap) - 0.5) * math.pi / 2
+        angleMap = (torch.sigmoid(angleMap) - 0.5) * math.pi
 
         geometry = torch.cat([geoMap, angleMap], dim=1)
 

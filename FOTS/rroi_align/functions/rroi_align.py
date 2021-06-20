@@ -5,11 +5,11 @@ import pdb
 
 
 class RRoiAlignFunction(Function):
-    def __init__(ctx, pooled_height, pooled_width, spatial_scale):
-        ctx.pooled_width = pooled_width
-        ctx.pooled_height = pooled_height
-        ctx.spatial_scale = spatial_scale
-        ctx.feature_size = None
+    # def __init__(ctx, pooled_height, pooled_width, spatial_scale):
+    #     ctx.pooled_width = pooled_width
+    #     ctx.pooled_height = pooled_height
+    #     ctx.spatial_scale = spatial_scale
+    #     ctx.feature_size = None
 
     @staticmethod
     def forward(ctx, features, rois, pooled_height, pooled_width, spatial_scale): 
@@ -44,7 +44,4 @@ class RRoiAlignFunction(Function):
 
         rroi_align.roi_align_rotated_backward(ctx.pooled_height, ctx.pooled_width, ctx.spatial_scale,
                                               grad_output, rois, grad_input, idx_x, idx_y)
-        print(grad_input.shape)
-        print(features.shape)
-
         return grad_input, None, None, None, None

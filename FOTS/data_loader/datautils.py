@@ -449,6 +449,8 @@ def generate_rbox(im_size, polys):
     # mask used during traning, to ignore some hard areas
     training_mask = np.ones((h, w), dtype = np.uint8)
     rectanges = []
+    angles = []
+    rois = []
 
 
     for poly_idx, poly in enumerate(polys):
@@ -543,7 +545,21 @@ def generate_rbox(im_size, polys):
 
         rectange = rectangle_from_parallelogram(parallelogram)
         rectange, rotate_angle = sort_rectangle(rectange)
+
+        roi = cv2.minAreaRect(rectange)
+
+        center = roi[0]
+        (w, h) = roi[1]
+        min_rect_angle = roi[2]
+
+        if h > w:
+            min_rect_angle = 90 - min_rect_angle
+            rois.append([center[0], center[1], w, h, min_rect_angle])
+        else:
+            rois.append([center[0], center[1], h, w, min_rect_angle])
+
         rectanges.append(rectange.flatten())
+        angles.append(rotate_angle)
 
         p0_rect, p1_rect, p2_rect, p3_rect = rectange
         for y, x in xy_in_poly:
@@ -558,7 +574,7 @@ def generate_rbox(im_size, polys):
             geo_map[y, x, 3] = point_dist_to_line(p3_rect, p0_rect, point)
             # angle
             geo_map[y, x, 4] = rotate_angle
-    return score_map, geo_map, training_mask, rectanges
+    return score_map, geo_map, training_mask, rectanges, rois
 
 
 def image_label(txt_root, image_list, img_name, index,
@@ -674,7 +690,8 @@ def image_label(txt_root, image_list, img_name, index,
 
 
 def collate_fn(batch):
-    imagePaths, img, score_map, geo_map, training_mask, transcripts, boxes = zip(*batch)
+    imagePaths, img, score_map, geo_map, training_mask, transcripts, boxes, rois= zip(*batch)
+
     bs = len(score_map)
     images = []
     score_maps = []
@@ -684,8 +701,6 @@ def collate_fn(batch):
     for i in range(bs):
         if img[i] is not None:
             a = torch.from_numpy(img[i])
-            a = a / 255
-            a = (a - np.array([0.485, 0.456, 0.406])) / np.array([0.229, 0.224, 0.225])
             a = a.permute(2, 0, 1)
             images.append(a)
             b = torch.from_numpy(score_map[i])
@@ -708,11 +723,14 @@ def collate_fn(batch):
     texts = []
     lengths = []
     bboxs = []
+    batched_rois = []
 
-    for index, gt in enumerate(zip(transcripts, boxes)):
+    for index, gt in enumerate(zip(transcripts, boxes, rois)):
         for b in gt[1]:
             mapping.append(index)
             bboxs.append(b)
+        for r in gt[2]:
+            batched_rois.append([index] + r)
         texts.append(gt[0][0])
         lengths.extend(gt[0][1])
 
@@ -720,10 +738,8 @@ def collate_fn(batch):
     texts = torch.cat(texts, dim=0)
     lengths = torch.tensor(lengths, dtype=torch.long)
     bboxs = torch.from_numpy(np.stack(bboxs))
+    batched_rois = torch.from_numpy(np.stack(batched_rois))
 
-    # bboxs = np.stack(bboxs, axis=0)
-    # bboxs = np.concatenate([bboxs, np.ones((len(bboxs), 1))], axis = 1).astype(np.float32)
-    # imagePaths = [p.name for p in imagePaths]
     data = dict(image_names=imagePaths,
                 images=images.float(),
                 score_maps=score_maps.float(),
@@ -731,8 +747,15 @@ def collate_fn(batch):
                 training_masks=training_masks.bool(),
                 transcripts=(texts, lengths),
                 bboxes=bboxs.float(),
-                mapping=mapping.int())
+                mapping=mapping.int(),
+                rois=batched_rois.float())
     return data
+
+
+def normalize_iamge(image: np.ndarray, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]):
+    image = image / 255
+    image = (image - np.array(mean)) / np.array(std)
+    return image
 
 
 ## img = bs * 512 * 512 *3

@@ -1,17 +1,19 @@
 {
-    "name": "finetune_resume",
+    "name": "united",
     "cuda": true,
     "gpus": [0, 1],
     "precision": 32,
     "backbone_weights": "/home/luning/dev/projects/FOTS.PyTorch/vision-0.9.0",
-    "pretrain": "/home/luning/dev/projects/FOTS.PyTorch/saved/finetune_resume/checkpoints/epoch=584-step=71858.ckpt",
+    "pretrain": "/home/luning/dev/projects/FOTS.PyTorch/saved/detection_icdar_only/checkpoints/epoch=792-step=49938.ckpt",
     "data_loader": {
         "dataset":"icdar2015",
         "data_dir": "/data/ocr/det/icdar2015/detection",
-        "batch_size": 3,
+        "batch_size": 8,
         "shuffle": true,
         "workers": 8,
-        "max_transcripts_pre_batch": 24
+        "max_transcripts_pre_batch": 32,
+        "size": 640,
+        "scale": 0.25
     },
     "validation": {
 
@@ -29,7 +31,7 @@
  
     "optimizer_type": "Adam",
     "optimizer": {
-        "lr": 0.00001
+        "lr": 0.001
     },
     "loss": "FOTSLoss",
     "metrics": ["fots_metric"],
@@ -45,7 +47,7 @@
         "overfit_batches": 0.0,
         "terminate_on_nan": true,
         "fast_dev_run": false,
-        "check_val_every_n_epoch": 10
+        "check_val_every_n_epoch": 20
     },
     "arch": "FOTSModel",
     "model": {

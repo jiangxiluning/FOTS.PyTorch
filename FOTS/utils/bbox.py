@@ -7,6 +7,7 @@ import numpy as np
 # import locality_aware_nms as nms_locality
 from . import lanms
 import torch
+from FOTS.data_loader import datautils
 
 
 class Toolbox:
@@ -304,8 +305,9 @@ class Toolbox:
         ratio_w = w / 640
         ratio_h = h / 640
 
-        im_resized = im_resized.astype(np.float32)
-        im_resized = torch.from_numpy(im_resized)
+        im_resized = datautils.normalize_iamge(im_resized)
+
+        im_resized = torch.from_numpy(im_resized).float()
         if with_gpu:
             im_resized = im_resized.to('cuda:0')
 
@@ -315,19 +317,17 @@ class Toolbox:
         output = model.forward(im_resized, None, None)
 
         score = output['score_maps']
-        geometry = output['geo_map']
+        geometry = output['geo_maps']
         preds = output['transcripts']
-        boxes = output['bboxes']
+        bboxes = output['bboxes']
         mapping = output['mapping']
         indices = output['indices']
 
-        if len(boxes) != 0:
-            boxes = boxes[:, :8].reshape((-1, 4, 2))
+        polys = []
+        if len(bboxes) > 0:
+            boxes = bboxes[0][:, :8].reshape((-1, 4, 2))
             boxes[:, :, 0] *= ratio_w
             boxes[:, :, 1] *= ratio_h
-
-        polys = []
-        if len(boxes) != 0:
 
             for box in boxes:
                 box = Toolbox.sort_poly(box.astype(np.int32))

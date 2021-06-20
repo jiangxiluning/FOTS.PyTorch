@@ -9,13 +9,14 @@ import torchvision
 import scipy.io as sio
 from imgaug.augmentables.polys import PolygonsOnImage, Polygon
 from torch.autograd import gradcheck
+from torch.utils.data import DataLoader
 
 from FOTS.data_loader.transforms import Transform
 from FOTS.model.modules.roi_rotate import ROIRotate
 from FOTS.utils.util import show_box
 from FOTS.data_loader.icdar_dataset import ICDARDataset
 from FOTS.data_loader.synthtext_dataset import SynthTextDataset
-
+from FOTS.data_loader.datautils import collate_fn
 from FOTS.rroi_align.modules.rroi_align import _RRoiAlign
 
 
@@ -230,8 +231,9 @@ def test_icdar_dataset():
     ds = ICDARDataset(data_root='/data/ocr/det/icdar2015/detection/train',
                       transform=transform,
                       vis=True)
-
-    print(ds[4])
+    dataloader = DataLoader(ds, batch_size=2, collate_fn=collate_fn)
+    for batch in dataloader:
+        print(batch)
 
 
 def test_rroi():
@@ -279,6 +281,9 @@ def test_rroi():
 
         angle_gt = ( math.atan2((gt[2][1] - gt[1][1]), gt[2][0] - gt[1][0]) + math.atan2((gt[3][1] - gt[0][1]), gt[3][0] - gt[0][0]) ) / 2
         angle_gt = -angle_gt / 3.1415926535 * 180                       # 需要加个负号
+
+        rr = cv2.minAreaRect(gt)
+        print(rr)
 
         roi.append([0, center[0], center[1], h, w, angle_gt])           # roi的参数
 

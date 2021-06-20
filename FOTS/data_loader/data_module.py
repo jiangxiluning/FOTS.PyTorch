@@ -33,10 +33,13 @@ class SynthTextDataModule(LightningDataModule):
         self.config = config
 
     def setup(self, stage: Optional[str] = None):
-        transform = Transform(is_training=True)
+        transform = Transform(is_training=True, output_size=(self.config.data_loader.size,
+                                                             self.config.data_loader.size))
         self.train_ds = SynthTextDataset(data_root=self.config.data_loader.data_dir,
                                          transform=transform,
-                                         vis=False)
+                                         vis=False,
+                                         size=self.config.data_loader.size,
+                                         scale=self.config.data_loader.scale)
 
     def train_dataloader(self) -> Any:
         return DataLoader(dataset=self.train_ds,
@@ -54,15 +57,22 @@ class ICDARDataModule(LightningDataModule):
         self.config = config
 
     def setup(self, stage: Optional[str] = None):
-        transform = Transform(is_training=True)
+        transform = Transform(is_training=True, output_size=(self.config.data_loader.size,
+                                                             self.config.data_loader.size))
         self.train_ds = ICDARDataset(data_root=self.config.data_loader.data_dir + '/train',
                                      transform=transform,
-                                     vis=False)
+                                     vis=False,
+                                     training=True,
+                                     size=self.config.data_loader.size,
+                                     scale=self.config.data_loader.scale)
 
         transform = Transform(is_training=False)
         self.val_ds = ICDARDataset(data_root=self.config.data_loader.data_dir + '/test',
                                    transform=transform,
-                                   vis=False)
+                                   vis=False,
+                                   training=False,
+                                   size=self.config.data_loader.size,
+                                   scale=self.config.data_loader.scale)
 
     def train_dataloader(self) -> Any:
         return DataLoader(dataset=self.train_ds,

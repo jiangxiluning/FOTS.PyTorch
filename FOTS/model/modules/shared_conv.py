@@ -15,7 +15,6 @@ class SharedConv(BaseModel):
     def __init__(self, bbNet: nn.Module, config):
         super(SharedConv, self).__init__(config)
         self.backbone = bbNet
-        self.backbone.eval()
         # backbone as feature extractor
         """ for param in self.backbone.parameters():
             param.requires_grad = False """
@@ -32,14 +31,7 @@ class SharedConv(BaseModel):
         self.mergeLayers4 = nn.Conv2d(32, 32, kernel_size = 3, padding = 1)
         self.bn5 = nn.BatchNorm2d(32, momentum=0.003)
 
-        # Output Layer
-        self.textScale = 512
-
-
     def forward(self, input):
-
-        input = self.__mean_image_subtraction(input)
-
         # bottom up
 
         f = self.__foward_backbone(input)
