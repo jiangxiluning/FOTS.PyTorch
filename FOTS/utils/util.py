@@ -43,25 +43,32 @@ def show_box(image_name, image, box, transcirpt, isFeaturemap=False):
     cv2.imwrite(image_name, img)
     # cv2.waitKey()
 
-def visualize(image_path: str,
-              boxes: numpy.ndarray,
-              transrcipts: typing.List[str]):
+def dump_results(image_path: str,
+                 output_dir: str,
+                 boxes: numpy.ndarray,
+                 transrcipts: typing.List[str]):
+
+    assert  len(boxes) == len(transrcipts)
     image = cv2.imread(image_path, cv2.IMREAD_COLOR)
-    saved_path = pathlib.Path('/home/luning/dev/projects/FOTS.PyTorch/res_images')
+    saved_path = pathlib.Path(output_dir)
     saved_path.mkdir(exist_ok=True)
-    for box, transcript in zip(boxes, transrcipts):
+
+    for i, box in enumerate(boxes):
         if box.shape[1] == 2:
             pts = box.T.astype(np.int)
         else:
             pts = box.astype(np.int)
         image = cv2.polylines(image, [pts], True, [150, 200, 200])
-        origin = pts[0]
-        font = cv2.FONT_HERSHEY_PLAIN
-        img = cv2.putText(img, transcript, (origin[0], origin[1] - 10), font, 0.5, (255, 255, 255))
+
+        if transrcipts:
+            origin = pts[0]
+            font = cv2.FONT_HERSHEY_PLAIN
+            img = cv2.putText(image, transrcipts[i], (origin[0], origin[1] - 10), font, 0.5, (255, 255, 255))
 
         image_name = pathlib.Path(image_path).stem
+        cv2.imwrite(str((saved_path / 'res_' + image_name).with_suffix('.jpg')), img)
 
-        cv2.imwrite(str((saved_path / 'res_'+image_name).with_suffix('.jpg')), img)
+
 
 class StringLabelConverter(object):
     """Convert between str and label.
@@ -158,9 +165,9 @@ class StringLabelConverter(object):
 str_label_converter = StringLabelConverter(alphabet=keys, ignore_case=False)
 
 if __name__ == '__main__':
-    image = cv2.imread('/Users/luning/Dev/data/icdar/icdar2015/4.4/training/ch4_training_images/img_1.jpg')
+    image = cv2.imread('/Users/luning/Dev/data/icdar/e2e/4.4/training/ch4_training_images/img_1.jpg')
     import pandas as pd
-    gts = pd.read_csv('/Users/luning/Dev/data/icdar/icdar2015/4.4/training/ch4_training_localization_transcription_gt/gt_img_1.txt', header=None)
+    gts = pd.read_csv('/Users/luning/Dev/data/icdar/e2e/4.4/training/ch4_training_localization_transcription_gt/gt_img_1.txt', header=None)
     for index, gt in gts.iterrows():
         x1, y1, x2, y2, x3, y3, x4, y4 = gt[:8]
         transcript = gt[8]

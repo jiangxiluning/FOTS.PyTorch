@@ -11,13 +11,10 @@ from pytorch_lightning.core import LightningModule
 
 from ..base import BaseModel
 from .modules import shared_conv
-from .modules.roi_rotate import ROIRotate
 from .modules.crnn import CRNN
 from ..utils.util import keys
 from .loss import FOTSLoss
-from ..utils.bbox import Toolbox
 from ..utils.post_processor import PostProcessor
-from ..utils.util import visualize
 from ..rroi_align.functions.rroi_align import RRoiAlignFunction
 from ..utils.detect import get_boxes
 
@@ -39,7 +36,7 @@ class FOTSModel(LightningModule):
         #self.roirotate = ROIRotate()
         self.roirotate = RRoiAlignFunction()
         self.pooled_height = 8
-        self.spatial_scale = 1.0
+        self.spatial_scale = config.data_loader.scale
 
         self.max_transcripts_pre_batch = self.config.data_loader.max_transcripts_pre_batch
 
@@ -62,7 +59,7 @@ class FOTSModel(LightningModule):
                 raise NotImplementedError()
             return dict(optimizer=optimizer, lr_scheduler=lr_scheduler)
 
-    def forward(self, images, boxes=None, rois=None):
+    def forward(self, images, boxes=None, rois=None, s=None, g=None):
         feature_map = self.sharedConv.forward(images)
 
         score_map, geo_map = self.detector(feature_map)
@@ -88,6 +85,10 @@ class FOTSModel(LightningModule):
             pooled_width = np.ceil(self.pooled_height * maxratio).astype(int)
 
             roi_features = self.roirotate.apply(feature_map, rois, self.pooled_height, pooled_width, self.spatial_scale)
+
+            # roi_features_debug = self.roirotate.apply(images[:, :, ::4, ::4], rois, self.pooled_height, pooled_width, self.spatial_scale)
+            # self.debug_rois(images, rois, roi_features_debug)
+
             lengths = torch.ceil(self.pooled_height * ratios)
 
             pred_mapping = rois[:, 0]
@@ -105,8 +106,8 @@ class FOTSModel(LightningModule):
             return data
 
         else:
-            score = score_map.cpu().numpy()
-            geometry = geo_map.cpu().numpy()
+            score = score_map.detach().cpu().numpy()
+            geometry = geo_map.detach().cpu().numpy()
 
             pred_boxes = []
             rois = []
@@ -117,16 +118,19 @@ class FOTSModel(LightningModule):
                 if bb is not None:
                     roi = []
                     for _, gt in enumerate(bb[:, :8].reshape(-1, 4, 2)):
-                        rr = cv2.minAreaRect(gt)
-                        center = rr[0]
-                        (w, h) = rr[1]
-                        min_rect_angle = rr[2]
+                        center = (gt[0, :] + gt[1, :] + gt[2, :] + gt[3, :]) / 4
+                        dw = gt[1, :] - gt[0, :]
+                        dh = gt[0, :] - gt[3, :]
+                        poww = pow(dw, 2)
+                        powh = pow(dh, 2)
 
-                        if h > w:
-                            min_rect_angle = min_rect_angle + 180
-                            roi.append([i, center[0], center[1], w, h, -min_rect_angle])
-                        else:
-                            roi.append([i, center[0], center[1], h, w, -min_rect_angle])
+                        w = np.sqrt(poww[0] + poww[1])
+                        #h = np.sqrt(powh[0] + powh[1]) + random.randint(-2, 2)
+                        h = np.sqrt(powh[0] + powh[1])
+                        angle_gt = (np.arctan2((gt[1, 1] - gt[0, 1]), gt[1, 0] - gt[0, 0]) + np.arctan2(
+                            (gt[2, 1] - gt[3, 1]), gt[2, 0] - gt[3, 0])) / 2  # 求角度
+                        angle_gt = -angle_gt / 3.1415926535 * 180
+                        roi.append([i, center[0], center[1], h, w, angle_gt])
 
                     pred_boxes.append(bb)
                     rois.append(np.stack(roi))
@@ -181,6 +185,37 @@ class FOTSModel(LightningModule):
 
                 return data
 
+    def debug_rois(self, images:torch.Tensor, rois: torch.Tensor, roi_features: torch.Tensor=None):
+        images = images.permute(0, 2, 3, 1).contiguous().detach().cpu().numpy()
+
+        images = images * np.array([0.229, 0.224, 0.225])
+        images = images + np.array([0.485, 0.456, 0.406])
+        images = images * 255
+
+        rois = rois.detach().cpu().numpy()
+        roi_feature = roi_features.permute(0, 2, 3, 1).contiguous().detach().cpu().numpy()
+
+        image_indices = rois[:, 0].astype(int)
+
+        for i in range(image_indices.shape[0]):
+            index = image_indices[i]
+            image = images[index]
+            roi = rois[i][1:]
+            feature = roi_feature[i]
+            center = (roi[0], roi[1])
+            wh = (roi[3], roi[2])
+            angle = -roi[4]
+            box = cv2.boxPoints((center, wh, angle))
+            new_image = cv2.polylines(image[:, :, ::-1].astype(np.uint8), [box.astype(np.int32)], color=(255, 0, 0), isClosed=True)
+            cv2.imwrite('./roi_test/image_{}_roi_{}.jpg'.format(index, i), new_image)
+
+
+
+
+
+
+
+
     def training_step(self, *args, **kwargs):
         input_data = args[0]
         bboxes = input_data['bboxes']
@@ -194,13 +229,18 @@ class FOTSModel(LightningModule):
         y_true_recog = (input_data['transcripts'][0][sampled_indices],
                         input_data['transcripts'][1][sampled_indices])
 
-        loss_dict = self.loss(y_true_cls=input_data['score_maps'],
-                              y_pred_cls=output['score_maps'],
-                              y_true_geo=input_data['geo_maps'],
-                              y_pred_geo=output['geo_maps'],
-                              y_true_recog=y_true_recog,
-                              y_pred_recog=output['transcripts'],
-                              training_mask=input_data['training_masks'])
+        try:
+            loss_dict = self.loss(y_true_cls=input_data['score_maps'],
+                                  y_pred_cls=output['score_maps'],
+                                  y_true_geo=input_data['geo_maps'],
+                                  y_pred_geo=output['geo_maps'],
+                                  y_true_recog=y_true_recog,
+                                  y_pred_recog=output['transcripts'],
+                                  training_mask=input_data['training_masks'])
+        except TypeError:
+            import ipdb; ipdb.set_trace()
+            print('fuck!')
+            raise
 
         loss = loss_dict['reg_loss'] + loss_dict['cls_loss'] + loss_dict['recog_loss']
         self.log('loss', loss, logger=True)
@@ -245,7 +285,7 @@ class FOTSModel(LightningModule):
         #     boxes, transcripts = self.postprocessor(boxes=boxes, transcripts=(transcripts, lengths))
         #     boxes_list.append(boxes)
         #     transcripts_list.append(transcripts)
-        #     image_path = '/media/mydisk/ocr/det/icdar2015/detection/test/imgs/' + image_names[index]
+        #     image_path = '/media/mydisk/ocr/det/e2e/detection/test/imgs/' + image_names[index]
         #     visualize(image_path, boxes, transcripts)
         #
         #     # visualize_box
@@ -283,7 +323,7 @@ class Detector(BaseModel):
         geoMap = torch.sigmoid(geoMap) * self.size  # TODO: 640 is the image size
 
         angleMap = self.angleMap(final)
-        angleMap = (torch.sigmoid(angleMap) - 0.5) * math.pi
+        angleMap = torch.sigmoid(angleMap) * math.pi / 2 # -pi/2  pi/2
 
         geometry = torch.cat([geoMap, angleMap], dim=1)
 

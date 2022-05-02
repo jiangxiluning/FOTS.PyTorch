@@ -38,7 +38,7 @@ def main(config, resume: bool):
     data_module.setup()
 
     root_dir = str(pathlib.Path(config.trainer.save_dir).absolute() / config.name)
-    checkpoint_callback = ModelCheckpoint(dirpath=root_dir + '/checkpoints', period=1)
+    checkpoint_callback = ModelCheckpoint(dirpath=root_dir + '/checkpoints', every_n_train_steps=config.trainer.every_n_train_steps)
     wandb_dir = pathlib.Path(root_dir) / 'wandb'
     if not wandb_dir.exists():
         wandb_dir.mkdir(parents=True, exist_ok=True)

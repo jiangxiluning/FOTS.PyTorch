@@ -1,5 +1,5 @@
 import numpy as np
-from ..utils.eval_tools.icdar2015 import eval as icdar_eval
+from ..utils.eval_tools.e2e import eval as icdar_eval
 
 
 def fots_metric(pred, gt):

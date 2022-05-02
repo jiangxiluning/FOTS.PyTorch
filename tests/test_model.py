@@ -18,13 +18,14 @@ from FOTS.data_loader.icdar_dataset import ICDARDataset
 from FOTS.data_loader.synthtext_dataset import SynthTextDataset
 from FOTS.data_loader.datautils import collate_fn
 from FOTS.rroi_align.modules.rroi_align import _RRoiAlign
+from FOTS.utils.detect import get_boxes
 
 
 
 @pytest.mark.skip
 def test_roi():
-    img_fn = '/Users/luning/Dev/data/icdar/icdar2015/4.4/training/ch4_training_images/img_1.jpg'
-    img_gt = '/Users/luning/Dev/data/icdar/icdar2015/4.4/training/ch4_training_localization_transcription_gt/gt_img_1.txt'
+    img_fn = '/Users/luning/Dev/data/icdar/e2e/4.4/training/ch4_training_images/img_1.jpg'
+    img_gt = '/Users/luning/Dev/data/icdar/e2e/4.4/training/ch4_training_localization_transcription_gt/gt_img_1.txt'
     img = cv2.imread(img_fn)
     boxes = []
     transcripts = []
@@ -57,8 +58,8 @@ def test_roi():
 
 @pytest.mark.skip
 def test_rect_icdar():
-    img_fn = '/Users/luning/Dev/data/icdar/icdar2015/4.4/training/ch4_training_images/img_283.jpg'
-    img_gt = '/Users/luning/Dev/data/icdar/icdar2015/4.4/training/ch4_training_localization_transcription_gt/gt_img_283.txt'
+    img_fn = '/Users/luning/Dev/data/icdar/e2e/4.4/training/ch4_training_images/img_283.jpg'
+    img_gt = '/Users/luning/Dev/data/icdar/e2e/4.4/training/ch4_training_localization_transcription_gt/gt_img_283.txt'
     img = cv2.imread(img_fn)
     boxes = []
     transcripts = []
@@ -176,8 +177,8 @@ def test_transform():
 
 @pytest.mark.skip
 def test_affine():
-    img_fn = '/Users/luning/Dev/data/icdar/icdar2015/4.4/training/ch4_training_images/img_100.jpg'
-    img_gt = '/Users/luning/Dev/data/icdar/icdar2015/4.4/training/ch4_training_localization_transcription_gt/gt_img_100.txt'
+    img_fn = '/Users/luning/Dev/data/icdar/e2e/4.4/training/ch4_training_images/img_100.jpg'
+    img_gt = '/Users/luning/Dev/data/icdar/e2e/4.4/training/ch4_training_localization_transcription_gt/gt_img_100.txt'
     img = cv2.imread(img_fn)
     cv2.imshow('img', img)
     cv2.waitKey()
@@ -228,7 +229,7 @@ def test_synthtext_dataset():
 def test_icdar_dataset():
 
     transform = Transform(is_training=True)
-    ds = ICDARDataset(data_root='/data/ocr/det/icdar2015/detection/train',
+    ds = ICDARDataset(data_root='/data/ocr/det/e2e/detection/train',
                       transform=transform,
                       vis=True)
     dataloader = DataLoader(ds, batch_size=2, collate_fn=collate_fn)
@@ -261,12 +262,28 @@ def test_rroi():
     # gts = [gt1, gt2, gt3, gt4, gt5]
     gts = [gt2, gt4, gt5]
 
-    # cv2.polylines(img, [gt2.astype(int)], isClosed=True, color=(0,0,255))
-    # cv2.polylines(img, [gt4.astype(int)], isClosed=True, color=(0,0,255))
-    # cv2.polylines(img, [gt5.astype(int)], isClosed=True, color=(0,0,255))
+    cv2.polylines(img, [gt2.astype(int)], isClosed=True, color=(0,0,255))
 
-    # cv2.imshow('show', img)
-    # cv2.waitKey()
+    colors = [(255, 0, 0),
+              (0, 255, 0),
+              (0, 0, 255),
+              (0, 0, 0)]
+    for i, p in enumerate(gt2):
+        cv2.circle(img, tuple(p), radius=5, color=colors[i])
+
+
+
+    cv2.polylines(img, [gt4.astype(int)], isClosed=True, color=(0,0,255))
+    # for i, p in enumerate(gt4):
+    #     cv2.circle(img, tuple(p), radius=5, color=colors[i])
+
+    cv2.polylines(img, [gt5.astype(int)], isClosed=True, color=(0,0,255))
+
+    # for i, p in enumerate(gt5):
+    #     cv2.circle(img, tuple(p), radius=5, color=colors[i])
+
+    cv2.imwrite('show.jpg', img)
+    cv2.waitKey()
 
 
 
@@ -282,16 +299,16 @@ def test_rroi():
         angle_gt = (math.atan2((gt[2][1] - gt[1][1]), gt[2][0] - gt[1][0]) + math.atan2((gt[3][1] - gt[0][1]), gt[3][0] - gt[0][0]) ) / 2
         angle_gt = -angle_gt / 3.1415926535 * 180                       # 需要加个负号
 
-        rr = cv2.minAreaRect(gt)
-        center = rr[0]
-        w, h = rr[1]
-        angle = rr[2]
-        if w < h:
-            angle = angle + 180
+        # rr = cv2.minAreaRect(gt)
+        # center = rr[0]
+        # w, h = rr[1]
+        # angle = rr[2]
+        # if w < h:
+        #     angle = angle + 180
 
 
-        # roi.append([0, center[0], center[1], h, w, angle_gt])           # roi的参数
-        roi.append([0, center[0], center[1], h, w, -angle])           # roi的参数
+        roi.append([0, center[0], center[1], h, w, angle_gt])           # roi的参数
+        # roi.append([0, center[0], center[1], h, w, -angle])           # roi的参数
 
     rois = torch.tensor(roi)
     rois = rois.to(torch.float).cuda()
@@ -337,3 +354,45 @@ def test_rroi():
         grad_img = img + im_grad
         cv2.imwrite('./grad_img.jpg', grad_img)
         print(pooled_feat.shape)
+
+
+def test_get_box():
+    transform = Transform(is_training=True)
+    ds = ICDARDataset(data_root='/data/ocr/det/e2e/detection/train',
+                      transform=transform,
+                      vis=True)
+    dataloader = DataLoader(ds, batch_size=2, collate_fn=collate_fn)
+    for batch in dataloader:
+        input_data = batch
+        gt_bboxes = input_data['bboxes']
+        gt_rois = input_data['rois']
+
+        scrore_maps = input_data['score_maps'].cpu().numpy()
+        geo_maps = input_data['geo_maps'].cpu().numpy()
+
+        pred_boxes = []
+        rois = []
+        for i in range(scrore_maps.shape[0]):
+            s = scrore_maps[i]
+            g = geo_maps[i]
+            bb = get_boxes(s, g, score_thresh=0.5)
+            if bb is not None:
+                roi = []
+                for _, gt in enumerate(bb[:, :8].reshape(-1, 4, 2)):
+                    center = (gt[0, :] + gt[1, :] + gt[2, :] + gt[3, :]) / 4
+                    dw = gt[2, :] - gt[1, :]
+                    dh = gt[1, :] - gt[0, :]
+                    poww = pow(dw, 2)
+                    powh = pow(dh, 2)
+
+                    w = np.sqrt(poww[0] + poww[1])
+                    h = np.sqrt(powh[0] + powh[1])
+                    angle_gt = (np.arctan2((gt[2, 1] - gt[1, 1]), gt[2, 0] - gt[1, 0]) + np.arctan2(
+                        (gt[3, 1] - gt[0, 1]), gt[3, 0] - gt[0, 0])) / 2  # 求角度
+                    angle_gt = -angle_gt / 3.1415926535 * 180
+
+                    roi.append([i, center[0], center[1], h, w, angle_gt])
+
+                pred_boxes.append(bb)
+                rois.append(np.stack(roi))
+

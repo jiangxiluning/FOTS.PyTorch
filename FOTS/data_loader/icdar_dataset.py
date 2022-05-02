@@ -56,8 +56,8 @@ class ICDARDataset(Dataset):
         all_images = []
 
         for image in self.images_root.glob('*.jpg'):
-            # image = pathlib.Path('/data/ocr/det/icdar2015/detection/train/imgs/img_756.jpg')
-            # gt = pathlib.Path('/data/ocr/det/icdar2015/detection/train/gt/gt_img_756.txt')
+            # image = pathlib.Path('/data/ocr/det/e2e/detection/train/imgs/img_756.jpg')
+            # gt = pathlib.Path('/data/ocr/det/e2e/detection/train/gt/gt_img_756.txt')
             gt = self.gt_root / image.with_name('gt_{}'.format(image.stem)).with_suffix('.txt').name
 
             with gt.open(mode='r') as f:
@@ -86,7 +86,8 @@ class ICDARDataset(Dataset):
                   image: np.ndarray,
                   polygons: typing.List[typing.List[float]],
                   score_map: np.ndarray,
-                  training_mask: np.ndarray):
+                  training_mask: np.ndarray,
+                  rois: np.ndarray):
 
         polygon_list = []
         for polygon in polygons:
@@ -96,15 +97,40 @@ class ICDARDataset(Dataset):
 
         polygons_on_image = ia_polys.PolygonsOnImage(polygons=polygon_list, shape=image.shape)
         new_image = polygons_on_image.draw_on_image(image)
-        cv2.imwrite(image_name + '.jpg', new_image)
+
+        colors = [(255, 0, 0),
+                  (0, 255, 0),
+                  (0, 0, 255),
+                  (0, 0, 0)]
+
+        for polygon in polygons:
+            for i, p in enumerate(polygon.reshape(4,2)):
+                cv2.circle(new_image, tuple(p), radius=5, color=colors[i])
+
+
+        cv2.imwrite(image_name + '.jpg', new_image[:,:,::-1])
+
+        rois_list = []
+
+        for roi in rois:
+            center = (roi[0], roi[1])
+            wh = (roi[3], roi[2])
+            angle = -roi[4]
+            box = cv2.boxPoints((center, wh, angle))
+            rois_list.append(ia_polys.Polygon(
+                box
+            ))
+        rois_on_image = ia_polys.PolygonsOnImage(polygons=rois_list, shape=image.shape)
+        new_image = rois_on_image.draw_on_image(image)
+        cv2.imwrite(image_name + '_rois.jpg', new_image[:,:,::-1])
 
         score_map = ia_segmaps.SegmentationMapsOnImage(score_map.astype(dtype=np.uint8), shape=image.shape)
         new_image = score_map.draw_on_image(image.astype(dtype=np.uint8))
-        cv2.imwrite(image_name + '_score.jpg', new_image[0])
+        cv2.imwrite(image_name + '_score.jpg', new_image[0][:,:,::-1])
 
         training_mask = ia_segmaps.SegmentationMapsOnImage(training_mask.astype(dtype=np.uint8), shape=image.shape)
         new_image = training_mask.draw_on_image(image.astype(dtype=np.uint8))
-        cv2.imwrite(image_name + '_mask.jpg', new_image[0])
+        cv2.imwrite(image_name + '_mask.jpg', new_image[0][:,:,::-1])
 
     def __getitem__(self, index):
         try:
@@ -157,7 +183,8 @@ class ICDARDataset(Dataset):
                                    polygons=rectangles,
                                    score_map=score_map,
                                    training_mask=training_mask,
-                                   image_name=image_path.stem)
+                                   image_name=image_path.stem,
+                                   rois=rois)
 
                 transcripts = str_label_converter.encode(transcripts)
 

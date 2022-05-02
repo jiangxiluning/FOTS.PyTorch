@@ -14,6 +14,7 @@
 # Email: jiangxiluning@gmail.com
 # Description:
 import typing
+import random
 
 from shapely.geometry import Polygon
 import numpy as np
@@ -337,18 +338,32 @@ def get_score_geo(img, vertices, labels, scale, length):
 
     vertices = vertices.reshape(-1, 8)
     for i, vertice in enumerate(vertices):
+        gt = vertice.reshape(4, 2)
+
+        center = (gt[0, :] + gt[1, :] + gt[2, :] + gt[3, :]) / 4
+        dw = gt[1, :] - gt[0, :]
+        dh = gt[0, :] - gt[3, :]
+        poww = pow(dw, 2)
+        powh = pow(dh, 2)
+
+        w = np.sqrt(poww[0] + poww[1])
+        h = np.sqrt(powh[0] + powh[1])
+        #h = np.sqrt(powh[0] + powh[1]) + random.randint(-2, 2)
+        angle_gt = ( np.arctan2((gt[1,1] - gt[0,1]), gt[1,0] - gt[0,0]) + np.arctan2((gt[2,1] - gt[3,1]), gt[2,0] - gt[3,0]) ) / 2        # 求角度
+        angle_gt = -angle_gt / 3.1415926535 * 180
 
         rotated_rects.append(vertice.reshape(4, 2))
-        roi = cv2.minAreaRect(scale * vertice.reshape(4, 2))
-        center = roi[0]
-        (w, h) = roi[1]
-        min_rect_angle = roi[2]
+        # roi = cv2.minAreaRect(scale * vertice.reshape(4, 2))
+        # center = roi[0]
+        # (w, h) = roi[1]
+        # min_rect_angle = roi[2]
 
-        if h > w:
-            min_rect_angle = min_rect_angle + 180
-            rois.append([center[0], center[1], w, h, -min_rect_angle])
-        else:
-            rois.append([center[0], center[1], h, w, -min_rect_angle])
+        # if h > w:
+        #     min_rect_angle = min_rect_angle + 180
+        #     rois.append([center[0], center[1], w, h, -min_rect_angle])
+        # else:
+        #     rois.append([center[0], center[1], h, w, -min_rect_angle])
+        rois.append([center[0], center[1], h, w, angle_gt])
 
         if labels[i] == 0:
             ignored_polys.append(np.around(scale * vertice.reshape((4, 2))).astype(np.int32))

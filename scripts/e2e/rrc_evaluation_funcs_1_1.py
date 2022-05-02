@@ -1,14 +1,19 @@
+#!/usr/bin/env python3
+#encoding: UTF-8
+
+#File: rrc_evaluation_funcs_1_1.py
+#Version: 1.1
+#Version info: changes for Python 3
+#Date: 2019-12-29
+#Description: File with useful functions to use by the evaluation scripts in the RRC website.
+
+import json
+import sys;
+sys.path.append('./')
 import zipfile
 import re
-import sys
 import os
-import codecs
 import importlib
-
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
 
 def print_help():
     sys.stdout.write('Usage: python %s.py -g=<gtFile> -s=<submFile> [-o=<outputFolder> -p=<jsonParams>]' %sys.argv[0])
@@ -80,12 +85,7 @@ def decode_utf8(raw):
     Returns a Unicode object on success, or None on failure
     """
     try:
-        raw = codecs.decode(raw,'utf-8', 'replace')
-        #extracts BOM if exists
-        raw = raw.encode('utf8')
-        if raw.startswith(codecs.BOM_UTF8):
-            raw = raw.replace(codecs.BOM_UTF8, '', 1)
-        return raw.decode('utf-8')
+        return raw.decode('utf-8-sig',errors = 'replace')
     except:
        return None
    
@@ -218,7 +218,87 @@ def get_tl_line_values(line,LTRB=True,withTranscription=False,withConfidence=Fal
     
     return points,confidence,transcription
     
+def get_tl_dict_values(detection,withTranscription=False,withConfidence=False,imWidth=0,imHeight=0,validNumPoints=[],validate_cw=True):
+    """
+    Validate the format of the dictionary. If the dictionary is not valid an exception will be raised.
+    If maxWidth and maxHeight are specified, all points must be inside the imgage bounds.
+    Posible values:
+    {"points":[[x1,y1],[x2,y2],[x3,x3],..,[xn,yn]]}
+    {"points":[[x1,y1],[x2,y2],[x3,x3],..,[xn,yn]],"transcription":"###","confidence":0.4,"illegibility":false}
+    {"points":[[x1,y1],[x2,y2],[x3,x3],..,[xn,yn]],"transcription":"###","confidence":0.4,"dontCare":false}
+    Returns values from the dictionary. Points , [Confidences], [Transcriptions]
+    """
+    confidence = 0.0
+    transcription = "";
+    points = []
+    
+    if isinstance(detection, dict) == False :
+        raise Exception("Incorrect format. Object has to be a dictionary") 
+
+    if not 'points' in detection:
+        raise Exception("Incorrect format. Object has no points key)")
+
+    if isinstance(detection['points'], list) == False :
+        raise Exception("Incorrect format. Object points key have to be an array)") 
+
+    num_points = len(detection['points'])
+    
+    if num_points<3 :
+        raise Exception("Incorrect format. Incorrect number of points. At least 3 points are necessary. Found: " +  str(num_points))    
+
+    if(len(validNumPoints)>0 and num_points in validNumPoints == False ):
+        raise Exception("Incorrect format. Incorrect number of points. Only allowed 4,8 or 12 points)")
+
+    for i in range(num_points):
+        if isinstance(detection['points'][i], list) == False :
+            raise Exception("Incorrect format. Point #" + str(i+1) + " has to be an array)")
+
+        if len(detection['points'][i]) != 2 :
+            raise Exception("Incorrect format. Point #" + str(i+1) + " has to be an array with 2 objects(x,y) )")     
+
+        if isinstance(detection['points'][i][0], (int,float) ) == False or isinstance(detection['points'][i][1], (int,float) ) == False :
+            raise Exception("Incorrect format. Point #" + str(i+1) + " childs have to be Integers)")
+        
+        if (imWidth>0 and imHeight>0):
+            validate_point_inside_bounds(detection['points'][i][0],detection['points'][i][1],imWidth,imHeight);        
             
+        points.append(float(detection['points'][i][0]))
+        points.append(float(detection['points'][i][1]))
+        
+    if validate_cw :
+        validate_clockwise_points(points)
+    
+    if withConfidence:
+        if not 'confidence' in detection:
+            raise Exception("Incorrect format. No confidence key)")
+
+        if isinstance(detection['confidence'], (int,float)) == False :
+            raise Exception("Incorrect format. Confidence key has to be a float)")
+        
+        if detection['confidence']<0 or detection['confidence']>1 :
+            raise Exception("Incorrect format. Confidence key has to be a float between 0.0 and 1.0")
+        
+        confidence = detection['confidence']
+    
+    if withTranscription:
+        if not 'transcription' in detection:
+            raise Exception("Incorrect format. No transcription key)")
+        
+        if isinstance(detection['transcription'], str) == False :
+            raise Exception("Incorrect format. Transcription has to be a string. Detected: " + type(detection['transcription']).__name__ )
+        
+        transcription = detection['transcription']
+        
+        if 'illegibility' in detection: #Ensures that if illegibility atribute is present and is True the transcription is set to ### (don't care)
+            if detection['illegibility'] == True:
+                transcription = "###"
+                
+        if 'dontCare' in detection: #Ensures that if dontCare atribute is present and is True the transcription is set to ### (don't care)
+            if detection['dontCare'] == True:
+                transcription = "###"
+                
+    return points,confidence,transcription
+    
 def validate_point_inside_bounds(x,y,imWidth,imHeight):
     if(x<0 or x>imWidth):
             raise Exception("X value (%s) not valid. Image dimensions: (%s,%s)" %(xmin,imWidth,imHeight))
@@ -227,28 +307,13 @@ def validate_point_inside_bounds(x,y,imWidth,imHeight):
 
 def validate_clockwise_points(points):
     """
-    Validates that the points that the 4 points that dlimite a polygon are in clockwise order.
+    Validates that the points are in clockwise order.
     """
-    
-    if len(points) != 8:
-        raise Exception("Points list not valid." + str(len(points)))
-    
-    point = [
-                [int(points[0]) , int(points[1])],
-                [int(points[2]) , int(points[3])],
-                [int(points[4]) , int(points[5])],
-                [int(points[6]) , int(points[7])]
-            ]
-    edge = [
-                ( point[1][0] - point[0][0])*( point[1][1] + point[0][1]),
-                ( point[2][0] - point[1][0])*( point[2][1] + point[1][1]),
-                ( point[3][0] - point[2][0])*( point[3][1] + point[2][1]),
-                ( point[0][0] - point[3][0])*( point[0][1] + point[3][1])
-    ]
-    
-    summatory = edge[0] + edge[1] + edge[2] + edge[3];
-    if summatory>0:
-        raise Exception("Points are not clockwise. The coordinates of bounding quadrilaterals have to be given in clockwise order. Regarding the correct interpretation of 'clockwise' remember that the image coordinate system used is the standard one, with the image origin at the upper left, the X axis extending to the right and Y axis extending downwards.")
+    edge = []
+    for i in range(len(points)//2):
+        edge.append( (int(points[(i+1)*2 % len(points)]) - int(points[i*2])) * (int(points[ ((i+1)*2+1) % len(points)]) + int(points[i*2+1]))   )
+    if sum(edge)>0:
+        raise Exception("Points are not clockwise. The coordinates of bounding points have to be given in clockwise order. Regarding the correct interpretation of 'clockwise' remember that the image coordinate system used is the standard one, with the image origin at the upper left, the X axis extending to the right and Y axis extending downwards.")
 
 def get_tl_line_values_from_file_contents(content,CRLF=True,LTRB=True,withTranscription=False,withConfidence=False,imWidth=0,imHeight=0,sort_by_confidences=True):
     """
@@ -278,6 +343,31 @@ def get_tl_line_values_from_file_contents(content,CRLF=True,LTRB=True,withTransc
         
     return pointsList,confidencesList,transcriptionsList
 
+def get_tl_dict_values_from_array(array,withTranscription=False,withConfidence=False,imWidth=0,imHeight=0,sort_by_confidences=True,validNumPoints=[],validate_cw=True):
+    """
+    Returns all points, confindences and transcriptions of a file in lists. Valid dict formats:
+    {"points":[[x1,y1],[x2,y2],[x3,x3],..,[xn,yn]],"transcription":"###","confidence":0.4}
+    """
+    pointsList = []
+    transcriptionsList = []
+    confidencesList = []
+    
+    for n in range(len(array)):
+        objectDict = array[n]
+        points, confidence, transcription = get_tl_dict_values(objectDict,withTranscription,withConfidence,imWidth,imHeight,validNumPoints,validate_cw);
+        pointsList.append(points)
+        transcriptionsList.append(transcription)
+        confidencesList.append(confidence)
+
+    if withConfidence and len(confidencesList)>0 and sort_by_confidences:
+        import numpy as np
+        sorted_ind = np.argsort(-np.array(confidencesList))
+        confidencesList = [confidencesList[i] for i in sorted_ind]
+        pointsList = [pointsList[i] for i in sorted_ind]
+        transcriptionsList = [transcriptionsList[i] for i in sorted_ind]        
+        
+    return pointsList,confidencesList,transcriptionsList
+
 def main_evaluation(p,default_evaluation_params_fn,validate_data_fn,evaluate_method_fn,show_result=True,per_sample=True):
     """
     This process validates a method, evaluates it and if it succed generates a ZIP file with a JSON entry for each sample.
@@ -295,7 +385,7 @@ def main_evaluation(p,default_evaluation_params_fn,validate_data_fn,evaluate_met
 
     evalParams = default_evaluation_params_fn()
     if 'p' in p.keys():
-        evalParams.update( p['p'] if isinstance(p['p'], dict) else json.loads(p['p'][1:-1]) )
+        evalParams.update( p['p'] if isinstance(p['p'], dict) else json.loads(p['p']) )
 
     resDict={'calculated':True,'Message':'','method':'{}','per_sample':'{}'}    
     try:
@@ -329,12 +419,12 @@ def main_evaluation(p,default_evaluation_params_fn,validate_data_fn,evaluate_met
     
     if 'o' in p:
         if per_sample == True:
-            for k,v in evalData['per_sample'].iteritems():
+            for k,v in evalData['per_sample'].items():
                 outZip.writestr( k + '.json',json.dumps(v)) 
 
-            if 'output_items' in evalData.keys():
-                for k, v in evalData['output_items'].iteritems():
-                    outZip.writestr( k,v) 
+        if 'output_items' in evalData.keys():
+            for k, v in evalData['output_items'].items():
+                outZip.writestr( k,v) 
 
         outZip.close()
 
@@ -356,11 +446,11 @@ def main_validation(default_evaluation_params_fn,validate_data_fn):
         p = dict([s[1:].split('=') for s in sys.argv[1:]])
         evalParams = default_evaluation_params_fn()
         if 'p' in p.keys():
-            evalParams.update( p['p'] if isinstance(p['p'], dict) else json.loads(p['p'][1:-1]) )
+            evalParams.update( p['p'] if isinstance(p['p'], dict) else json.loads(p['p']) )
 
         validate_data_fn(p['g'], p['s'], evalParams)              
-        print('SUCCESS')
+        print ('SUCCESS')
         sys.exit(0)
     except Exception as e:
-        print(str(e))
+        print (str(e))
         sys.exit(101)
