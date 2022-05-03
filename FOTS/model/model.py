@@ -106,6 +106,10 @@ class FOTSModel(LightningModule):
             return data
 
         else:
+            # if s is not None and g is not None:
+            #     score_map = s
+            #     geo_map = g
+
             score = score_map.detach().cpu().numpy()
             geometry = geo_map.detach().cpu().numpy()
 
@@ -114,7 +118,7 @@ class FOTSModel(LightningModule):
             for i in range(score.shape[0]):
                 s = score[i]
                 g = geometry[i]
-                bb = get_boxes(s, g, score_thresh=0.9)
+                bb = get_boxes(s, g, score_thresh=0.2, nms_thresh=0.5)
                 if bb is not None:
                     roi = []
                     for _, gt in enumerate(bb[:, :8].reshape(-1, 4, 2)):
@@ -209,13 +213,6 @@ class FOTSModel(LightningModule):
             new_image = cv2.polylines(image[:, :, ::-1].astype(np.uint8), [box.astype(np.int32)], color=(255, 0, 0), isClosed=True)
             cv2.imwrite('./roi_test/image_{}_roi_{}.jpg'.format(index, i), new_image)
 
-
-
-
-
-
-
-
     def training_step(self, *args, **kwargs):
         input_data = args[0]
         bboxes = input_data['bboxes']
@@ -229,18 +226,13 @@ class FOTSModel(LightningModule):
         y_true_recog = (input_data['transcripts'][0][sampled_indices],
                         input_data['transcripts'][1][sampled_indices])
 
-        try:
-            loss_dict = self.loss(y_true_cls=input_data['score_maps'],
-                                  y_pred_cls=output['score_maps'],
-                                  y_true_geo=input_data['geo_maps'],
-                                  y_pred_geo=output['geo_maps'],
-                                  y_true_recog=y_true_recog,
-                                  y_pred_recog=output['transcripts'],
-                                  training_mask=input_data['training_masks'])
-        except TypeError:
-            import ipdb; ipdb.set_trace()
-            print('fuck!')
-            raise
+        loss_dict = self.loss(y_true_cls=input_data['score_maps'],
+                              y_pred_cls=output['score_maps'],
+                              y_true_geo=input_data['geo_maps'],
+                              y_pred_geo=output['geo_maps'],
+                              y_true_recog=y_true_recog,
+                              y_pred_recog=output['transcripts'],
+                              training_mask=input_data['training_masks'])
 
         loss = loss_dict['reg_loss'] + loss_dict['cls_loss'] + loss_dict['recog_loss']
         self.log('loss', loss, logger=True)
@@ -323,7 +315,7 @@ class Detector(BaseModel):
         geoMap = torch.sigmoid(geoMap) * self.size  # TODO: 640 is the image size
 
         angleMap = self.angleMap(final)
-        angleMap = torch.sigmoid(angleMap) * math.pi / 2 # -pi/2  pi/2
+        angleMap = (torch.sigmoid(angleMap) - 0.5) * math.pi / 2 # -pi/2  pi/2
 
         geometry = torch.cat([geoMap, angleMap], dim=1)
 

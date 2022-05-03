@@ -41,7 +41,7 @@ def calculate_metric(output_dir: pathlib.Path, mode='detection'):
 
     if mode == 'detection':
         subprocess.run(DET_CMD.format(sys.executable, results_zip.as_posix()), shell=True, text=True)
-    elif mode == 'unified':
+    elif mode == 'e2e':
         subprocess.run(E2E_CMD.format(sys.executable, results_zip.as_posix()), shell=True, text=True)
     else:
         raise ValueError('Mode {} is not supported.'.format(mode))
@@ -70,7 +70,7 @@ def main(args: argparse.Namespace):
     #with_gpu = False
 
     config.data_loader.batch_size = 4
-    config.data_loader.workers = 0
+    config.data_loader.workers = 8
     data_module = ICDARDataModule(config)
     data_module.setup()
 

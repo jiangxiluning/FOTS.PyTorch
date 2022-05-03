@@ -11,7 +11,6 @@ from easydict import EasyDict
 
 from FOTS.model.model import FOTSModel
 from FOTS.model.loss import *
-from FOTS.model.metric import *
 from FOTS.data_loader.data_module import SynthTextDataModule, ICDARDataModule
 
 
