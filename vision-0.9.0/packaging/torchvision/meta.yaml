@@ -1,0 +1,64 @@
+package:
+  name: torchvision
+  version: "{{ environ.get('BUILD_VERSION') }}"
+
+source:
+ path: "{{ environ.get('SOURCE_ROOT_DIR') }}"
+
+requirements:
+  build:
+    - {{ compiler('c') }} # [win]
+    - libpng
+    - jpeg <=9b
+    # NOTE: The only ffmpeg version that we build is actually 4.2
+    - ffmpeg >=4.2  # [not win]
+
+  host:
+    - python
+    - setuptools
+    - defaults::numpy >=1.11
+    {{ environ.get('CONDA_PYTORCH_BUILD_CONSTRAINT') }}
+    {{ environ.get('CONDA_CUDATOOLKIT_CONSTRAINT') }}
+    {{ environ.get('CONDA_CPUONLY_FEATURE') }}
+
+  run:
+    - python
+    - libpng
+    - ffmpeg >=4.2  # [not win]
+    - jpeg <=9b
+    - pillow >=4.1.1
+    - defaults::numpy >=1.11
+    {{ environ.get('CONDA_PYTORCH_CONSTRAINT') }}
+    {{ environ.get('CONDA_CUDATOOLKIT_CONSTRAINT') }}
+
+build:
+  string: py{{py}}_{{ environ['CU_VERSION'] }}
+  script: python setup.py install --single-version-externally-managed --record=record.txt
+  script_env:
+    - CUDA_HOME
+    - FORCE_CUDA
+    - NVCC_FLAGS
+    - BUILD_VERSION
+  features:
+    {{ environ.get('CONDA_CPUONLY_FEATURE') }}
+
+test:
+  imports:
+    - torchvision
+    - torchvision.datasets
+    - torchvision.transforms
+  source_files:
+    - test
+  requires:
+    - pytest
+    - scipy
+    - av >=8.0.1
+    - jpeg <=9b
+    - ca-certificates
+
+
+about:
+  home: https://github.com/pytorch/vision
+  license: BSD
+  license_file: LICENSE
+  summary: 'image and video datasets and models for torch deep learning'
