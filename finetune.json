@@ -1,16 +1,16 @@
 {
-    "name": "finetune",
+    "name": "finetune_e2e",
     "cuda": true,
     "gpus": [0, 1],
     "precision": 32,
     "backbone_weights": "/home/luning/dev/projects/FOTS.PyTorch/vision-0.9.0",
-    "pretrain": "/home/luning/dev/projects/FOTS.PyTorch/saved/finetune/checkpoints/epoch=9-step=618.ckpt",
+    "pretrain": "/home/luning/dev/projects/FOTS.PyTorch/saved/finetune_resume/checkpoints/epoch=597-step=36999.ckpt",
     "data_loader": {
         "dataset":"icdar2015",
         "data_dir": "/data/ocr/det/icdar2015/detection",
         "batch_size": 8,
         "shuffle": true,
-        "workers": 8,
+        "workers": 16,
         "max_transcripts_pre_batch": 32,
         "size": 640,
         "scale": 0.25
@@ -47,10 +47,11 @@
         "overfit_batches": 0.0,
         "terminate_on_nan": true,
         "fast_dev_run": false,
-        "check_val_every_n_epoch": 20
+        "check_val_every_n_epoch": 20,
+        "every_n_train_steps": 1000
     },
     "arch": "FOTSModel",
     "model": {
-        "mode": "united"
+        "mode": "e2e"
     }
 }
