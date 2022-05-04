@@ -1,7 +1,7 @@
 import torch.utils.data as torchdata
 
 from ..base import BaseDataLoader
-from .dataset import SynthTextDataset
+from .synthtext_dataset import SynthTextDataset
 from .datautils import collate_fn
 
 

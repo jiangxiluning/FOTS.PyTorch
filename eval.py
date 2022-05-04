@@ -1,21 +1,22 @@
 import argparse
-import pathlib
+import json
 import logging
+import pathlib
+import subprocess
+import sys
+import zipfile
 from dataclasses import dataclass
 from typing import List
 
-import json
-import torch
-import easydict
 import cv2
+import easydict
 import numpy as np
+import torch
 import tqdm
-import subprocess
-import zipfile
-import sys
 
 from FOTS.data_loader.data_module import ICDARDataModule
 from FOTS.model.model import FOTSModel
+from FOTS.utils.util import str_label_converter
 
 logging.basicConfig(level=logging.DEBUG, format='')
 
@@ -67,7 +68,9 @@ def main(args: argparse.Namespace):
 
     config = json.load(open(args.config))
     config = easydict.EasyDict(config)
-    #with_gpu = False
+
+    if not with_gpu and config.model.mode == 'e2e':
+        raise ValueError('E2E mode does not support CPU mode.')
 
     config.data_loader.batch_size = 4
     config.data_loader.workers = 8
@@ -84,17 +87,24 @@ def main(args: argparse.Namespace):
     for batch in tqdm.tqdm(data_module.val_dataloader()):
         output = model(images=batch['images'].to(device),
                        s=batch['score_maps'],g=batch['geo_maps'])
+        image_paths = batch['image_names']
+
+        if output['mapping'] is None:
+            for p in image_paths:
+                stem_key = pathlib.Path(p).stem
+                image_dict[stem_key] = Result(p, [], [], pred_size=(geo_maps.shape[2] / config.data_loader.scale,
+                                                                    geo_maps.shape[3] / config.data_loader.scale))
+            break
 
         mapping = output['mapping'].cpu().numpy().astype(np.int)
-        image_paths = batch['image_names']
         boxes = output['bboxes'].cpu().numpy()
         #boxes = batch['bboxes'].cpu().numpy()
-        transrcipts = output['transcripts']
+        transcripts = output['transcripts']
         geo_maps = output['geo_maps']
 
-        if transrcipts[0]:
-            transrcipts = output['transcripts'][0].cpu().numpy(), output['transcripts'][1].cpu().numpy()
-            assert len(boxes) == len(transrcipts[0])
+        if transcripts[0] is not None:
+            transcripts = output['transcripts'][0].detach().cpu(), output['transcripts'][1].detach().cpu().int()
+            assert len(boxes) == transcripts[0].shape[1] # T, B, C
 
         for i, image_index in enumerate(mapping):
             stem_key = pathlib.Path(image_paths[image_index]).stem
@@ -108,8 +118,9 @@ def main(args: argparse.Namespace):
             box = boxes[i]
             pts = box.astype(np.int)
             result.boxes.append(pts)
-            if transrcipts[0]:
-                result.transcripts.append(transrcipts[0][i])
+            if transcripts[0] is not None:
+                transcript = str_label_converter.decode(t=torch.argmax(transcripts[0][:transcripts[1][i], i, :], dim=-1), length=transcripts[1][i])
+                result.transcripts.append(transcript)
             else:
                 result.transcripts.append(None)
 
@@ -120,29 +131,31 @@ def main(args: argparse.Namespace):
         image = cv2.imread(v.image_path, cv2.IMREAD_COLOR)
         h, w, _ = image.shape
 
-        for box, transcript in zip(v.boxes, v.transcripts):
-            pts = box[:8].reshape(4, 2)
-            pts[:, 0] = pts[:, 0] * w / v.pred_size[1]
-            pts[:, 1] = pts[:, 1] * h / v.pred_size[0]
+        if v.boxes:
+            for box, transcript in zip(v.boxes, v.transcripts):
+                pts = box[:8].reshape(4, 2)
+                pts[:, 0] = pts[:, 0] * w / v.pred_size[1]
+                pts[:, 1] = pts[:, 1] * h / v.pred_size[0]
 
 
-            image = cv2.polylines(image, [pts], True, [0, 0, 255], thickness=2)
-            colors = [(255, 0, 0),
-                      (0, 255, 0),
-                      (0, 0, 255),
-                      (0, 0, 0)]
-            for i, p in enumerate(pts):
-                cv2.circle(image, tuple(p), radius=5, color=colors[i])
+                image = cv2.polylines(image, [pts], True, [0, 0, 255], thickness=2)
+                colors = [(255, 0, 0),
+                          (0, 255, 0),
+                          (0, 0, 255),
+                          (0, 0, 0)]
+                for i, p in enumerate(pts):
+                    cv2.circle(image, tuple(p), radius=5, color=colors[i])
 
 
-            box_list = [str(p) for p in pts.flatten().tolist()]
-            if transcript is not None:
-                origin = box[0]
-                font = cv2.FONT_HERSHEY_PLAIN
-                img = cv2.putText(image, transcript, (origin[0], origin[1] - 10), font, 0.5, (255, 255, 255))
-            else:
-                line = ','.join(box_list)
-            f.write(line + '\n')
+                box_list = [str(p) for p in pts.flatten().tolist()]
+                if transcript:
+                    origin = pts[0]
+                    font = cv2.FONT_HERSHEY_PLAIN
+                    image = cv2.putText(image, transcript, (origin[0], origin[1] - 10), font, 1, (0, 255, 0), 2)
+                    line = ','.join(box_list) + ',' + transcript
+                else:
+                    line = ','.join(box_list)
+                f.write(line + '\n')
 
         f.close()
         cv2.imwrite(output_image_path.as_posix(), image)

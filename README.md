@@ -2,8 +2,8 @@
  - [x] ICDAR Dataset 
  - [x] SynthText 800K Dataset
  - [x] detection branch (verified on the training set, It works!)
- - [x] recognition branch
- - [ ] eval
+ - [x] recognition branch (verified)
+ - [x] eval
  - [x] multi-gpu training
  - [x] reasonable project structure
  - [x] wandb
@@ -28,11 +28,11 @@ This is a PyTorch implementation of [FOTS](https://arxiv.org/abs/1801.01671).
 2. prepare Dataset
 
 3. create virtual env, you may need conda
-```
-conda create --name fots --file spec-file.txt
-conda activate fots
-pip install -r reqs.txt
-```
+   ```
+   conda create --name fots --file spec-file.txt
+   conda activate fots
+   pip install -r reqs.txt
+   ```
 
 
 ## Training
@@ -48,10 +48,14 @@ pip install -r reqs.txt
 
 ```
 python eval.py -m <model.tar.gz> -i <input_images_folder> -o <output_folders>
-
 ```
 
 ## Benchmarking and Models (Coming soon!)
+
+### Visualization (1000 epochs, 8 bs, icdar2015 without finetuning, still converging!!!)
+
+![img_59.jpg](https://s2.loli.net/2022/05/04/entWAbuEoYNV6sP.jpg)
+![img_108.jpg](https://s2.loli.net/2022/05/04/B4Qdg2C6ZcbF89q.jpg)
 
 
 ## Acknowledgement
