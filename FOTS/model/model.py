@@ -166,6 +166,7 @@ class FOTSModel(LightningModule):
                 maxratio = ratios.max().item()
                 pooled_width = np.ceil(self.pooled_height * maxratio).astype(int)
                 roi_features = self.roirotate.apply(feature_map, rois, self.pooled_height, pooled_width, self.spatial_scale)
+                self.debug_rois(images, rois, self.pooled_height, pooled_width, 1.0)
 
                 lengths = torch.ceil(self.pooled_height * ratios)
 
@@ -189,29 +190,41 @@ class FOTSModel(LightningModule):
 
                 return data
 
-    def debug_rois(self, images:torch.Tensor, rois: torch.Tensor, roi_features: torch.Tensor=None):
-        images = images.permute(0, 2, 3, 1).contiguous().detach().cpu().numpy()
+    def debug_rois(self,
+                   images:torch.Tensor,
+                   rois: torch.Tensor,
+                   pooled_height: int,
+                   pooled_width: int,
+                   scale_factor: float=1.0):
 
-        images = images * np.array([0.229, 0.224, 0.225])
-        images = images + np.array([0.485, 0.456, 0.406])
-        images = images * 255
+        resized_image = nn.functional.interpolate(images, scale_factor=scale_factor, mode='bilinear')
+        roi_features = self.roirotate.apply(resized_image, rois, pooled_height, pooled_width, scale_factor)
+
+        resized_image = resized_image.permute(0, 2, 3, 1).contiguous().detach().cpu().numpy()
+        resized_image = resized_image * np.array([0.229, 0.224, 0.225])
+        resized_image = resized_image + np.array([0.485, 0.456, 0.406])
+        resized_image = resized_image * 255
 
         rois = rois.detach().cpu().numpy()
         roi_feature = roi_features.permute(0, 2, 3, 1).contiguous().detach().cpu().numpy()
+        roi_feature *= np.array([0.229, 0.224, 0.225])
+        roi_feature *= np.array([0.485, 0.456, 0.406])
+        roi_feature *= 255
 
         image_indices = rois[:, 0].astype(int)
 
         for i in range(image_indices.shape[0]):
             index = image_indices[i]
-            image = images[index]
+            image = resized_image[index]
             roi = rois[i][1:]
             feature = roi_feature[i]
             center = (roi[0], roi[1])
             wh = (roi[3], roi[2])
             angle = -roi[4]
             box = cv2.boxPoints((center, wh, angle))
-            new_image = cv2.polylines(image[:, :, ::-1].astype(np.uint8), [box.astype(np.int32)], color=(255, 0, 0), isClosed=True)
+            new_image = cv2.polylines(image[:, :, ::-1].astype(np.uint8), [box.astype(np.int32)], color=(0, 255, 0), isClosed=True, thickness=1)
             cv2.imwrite('./roi_test/image_{}_roi_{}.jpg'.format(index, i), new_image)
+            cv2.imwrite('./roi_test/image_{}_roi_{}_cropped.jpg'.format(index, i), feature[:, :, ::-1].astype(np.uint8))
 
     def training_step(self, *args, **kwargs):
         input_data = args[0]

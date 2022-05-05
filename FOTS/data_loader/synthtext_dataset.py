@@ -120,9 +120,9 @@ class SynthTextDataset(Dataset):
             image_path = self.imageNames[index]
             word_b_boxes = self.wordBBoxes[index] # 2 * 4 * num_words
             transcripts = self.transcripts[index]
+            image_path = (self.dataRoot / 'imgs' / image_path).absolute()
+            im = cv2.imread(image_path.as_posix())
 
-            im = cv2.imread((self.dataRoot / 'imgs' / image_path).as_posix())
-            image_path = pathlib.Path(image_path)
             word_b_boxes = np.expand_dims(word_b_boxes, axis=2) if (word_b_boxes.ndim == 2) else word_b_boxes
             _, _, num_of_words = word_b_boxes.shape
             text_polys = word_b_boxes.transpose((2, 1, 0))
@@ -178,9 +178,8 @@ class SynthTextDataset(Dataset):
                 return self.__getitem__(np.random.randint(0, len(self)))
 
         except Exception as e:
-            # loguru.logger.warning('Something wrong with data processing. Resample.')
-            # return self.__getitem__(np.random.randint(0, len(self)))
-            raise e
+            loguru.logger.warning('Something wrong with data processing. Resample.')
+            return self.__getitem__(np.random.randint(0, len(self)))
 
     def __len__(self):
         return len(self.imageNames)

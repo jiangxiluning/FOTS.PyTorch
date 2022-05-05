@@ -55,7 +55,6 @@ def get_extensions():
         print(sources)
         define_macros += [("WITH_CUDA", None)]
         extra_compile_args["nvcc"] = [
-            "-DCUDA_HAS_FP16=1",
             "-D__CUDA_NO_HALF_OPERATORS__",
             "-D__CUDA_NO_HALF_CONVERSIONS__",
             "-D__CUDA_NO_HALF2_OPERATORS__",

@@ -17,13 +17,7 @@ int rroi_align_forward_cuda(int pooled_height, int pooled_width, float spatial_s
     CHECK_CUDA(output);
     CHECK_CUDA(idx_x);
     CHECK_CUDA(idx_y);
-    // Grab the input tensor
-    at::Tensor data_flat = features.data();
-    at::Tensor rois_flat = rois.data();
 
-    at::Tensor output_flat = output.data();
-    at::Tensor idx_x_flat = idx_x.data();                   // 每个rroi bin的中心索引
-    at::Tensor idx_y_flat = idx_y.data();
     // int * argmax_flat = THCudaIntTensor_data(state, argmax);
 
     // Number of ROIs
@@ -44,10 +38,10 @@ int rroi_align_forward_cuda(int pooled_height, int pooled_width, float spatial_s
     cudaStream_t stream = c10::cuda::getCurrentCUDAStream();
 
     RROIAlignForwardLaucher(
-        data_flat, spatial_scale, num_rois, data_height,
+        features, spatial_scale, num_rois, data_height,
         data_width, num_channels, pooled_height,
-        pooled_width, rois_flat,
-        output_flat, idx_x_flat, idx_y_flat, stream);
+        pooled_width, rois,
+        output, idx_x, idx_y, stream);
 
     return 1;
 }
@@ -64,13 +58,6 @@ int rroi_align_backward_cuda(int pooled_height, int pooled_width, float spatial_
     CHECK_CUDA(bottom_grad);
     CHECK_CUDA(idx_x);
     CHECK_CUDA(idx_y);
-    // Grab the input tensor
-    at::Tensor top_grad_flat = top_grad.data();
-    at::Tensor rois_flat = rois.data();
-
-    at::Tensor bottom_grad_flat = bottom_grad.data();
-    at::Tensor idx_x_flat = idx_x.data();
-    at::Tensor idx_y_flat = idx_y.data();
 
     // Number of ROIs
     int num_rois = rois.size(0);
@@ -92,10 +79,10 @@ int rroi_align_backward_cuda(int pooled_height, int pooled_width, float spatial_
 
     cudaStream_t stream = c10::cuda::getCurrentCUDAStream();
     RROIAlignBackwardLaucher(
-        top_grad_flat, spatial_scale, batch_size, num_rois, data_height,
+        top_grad, spatial_scale, batch_size, num_rois, data_height,
         data_width, num_channels, pooled_height,
-        pooled_width, rois_flat, bottom_grad_flat, 
-        idx_x_flat, idx_y_flat, stream);
+        pooled_width, rois, bottom_grad,
+        idx_x, idx_y, stream);
 
     return 1;
 }

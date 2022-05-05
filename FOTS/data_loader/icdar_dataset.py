@@ -77,7 +77,7 @@ class ICDARDataset(Dataset):
                     bboxes = np.array(bboxes)
                     all_bboxs.append(bboxes)
                     all_texts.append(texts)
-                    all_images.append(image)
+                    all_images.append(image.absolute())
 
         return all_images, all_bboxs, all_texts
 
@@ -137,9 +137,7 @@ class ICDARDataset(Dataset):
             image_path = self.images[index]
             word_b_boxes = self.bboxs[index] # num_words * 8
             transcripts = self.transcripts[index]
-
-            im = cv2.imread((self.images_root / image_path).as_posix())
-            image_path = pathlib.Path(image_path)
+            im = cv2.imread(image_path.as_posix())
 
             num_of_words = word_b_boxes.shape[0]
             text_polys = word_b_boxes

@@ -30,17 +30,17 @@
  template <typename scalar_t>
 __global__ void RROIAlignForward(
     const int nthreads,
-    const scalar_t* bottom_data,
+    const scalar_t* __restrict__ bottom_data,
     const float spatial_scale,
     const int height,
     const int width,
     const int channels,
     const int pooled_height,
     const int pooled_width,
-    const scalar_t* bottom_rois,
-    scalar_t* top_data,
-    scalar_t* con_idx_x,
-    scalar_t* con_idx_y)
+    const scalar_t* __restrict__ bottom_rois,
+    scalar_t* __restrict__ top_data,
+    scalar_t* __restrict__ con_idx_x,
+    scalar_t* __restrict__ con_idx_y)
 {
 
     CUDA_KERNEL_LOOP(index, nthreads)
@@ -143,9 +143,9 @@ __global__ void RROIAlignForward(
             inter_val += rb_value * wrb;
             inter_val += lb_value * wlb;
 
-            atomicAdd(top_data + index, static_cast<float>(inter_val));
-            atomicAdd(con_idx_x + index, static_cast<float>(bin_cx));
-            atomicAdd(con_idx_y + index, static_cast<float>(bin_cy));
+            atomicAdd(top_data + index, static_cast<scalar_t>(inter_val));
+            atomicAdd(con_idx_x + index, static_cast<scalar_t>(bin_cx));
+            atomicAdd(con_idx_y + index, static_cast<scalar_t>(bin_cy));
 
             //top_data[index] = static_cast<float>(inter_val);
             //con_idx_x[index] = bin_cx;
@@ -167,9 +167,9 @@ __global__ void RROIAlignForward(
 template <typename scalar_t>
 __global__ void RROIAlignBackward(
     const int nthreads,
-    const scalar_t* top_diff,
-    const scalar_t* con_idx_x,
-    const scalar_t* con_idx_y,
+    const scalar_t* __restrict__ top_diff,
+    const scalar_t* __restrict__ con_idx_x,
+    const scalar_t* __restrict__ con_idx_y,
     const int num_rois,
     const float spatial_scale,
     const int height,
@@ -177,8 +177,8 @@ __global__ void RROIAlignBackward(
     const int channels,
     const int pooled_height,
     const int pooled_width,
-    scalar_t* bottom_diff,
-    const scalar_t* bottom_rois) {
+    scalar_t* __restrict__ bottom_diff,
+    const scalar_t* __restrict__ bottom_rois) {
         CUDA_KERNEL_LOOP(index, nthreads){
 
         // (n, c, ph, pw) is an element in the pooled output
@@ -240,13 +240,13 @@ __global__ void RROIAlignBackward(
             // Atomic add
 
             if (min_y > 0 && min_x  > 0 && min_y < height - 1 && min_x < width - 1)
-                atomicAdd(offset_bottom_diff + min_y * width + min_x, static_cast<float>(v1));          // 多个roi会重复操作
+                atomicAdd(offset_bottom_diff + min_y * width + min_x, static_cast<scalar_t>(v1));          // 多个roi会重复操作
             if (min_y > 0 && max_x < width - 1 && min_y < height - 1 && max_x > 0)
-                atomicAdd(offset_bottom_diff + min_y * width + max_x, static_cast<float>(v2));
+                atomicAdd(offset_bottom_diff + min_y * width + max_x, static_cast<scalar_t>(v2));
             if (max_y < height - 1 && max_x < width - 1 && max_y > 0 && max_x > 0)
-                atomicAdd(offset_bottom_diff + max_y * width + max_x, static_cast<float>(v3));
+                atomicAdd(offset_bottom_diff + max_y * width + max_x, static_cast<scalar_t>(v3));
             if (max_y < height - 1 && min_x > 0 && max_y > 0 && min_x < width - 1)
-                atomicAdd(offset_bottom_diff + max_y * width + min_x, static_cast<float>(v4));
+                atomicAdd(offset_bottom_diff + max_y * width + min_x, static_cast<scalar_t>(v4));
 
         }
     }
@@ -257,7 +257,7 @@ __global__ void RROIAlignBackward(
 
 
 int RROIAlignForwardLaucher(
-    const at::Tensor& bottom_data, 
+    torch::Tensor bottom_data,
     const float spatial_scale, 
     const int num_rois, 
     const int height,
@@ -265,29 +265,29 @@ int RROIAlignForwardLaucher(
     const int channels, 
     const int pooled_height,
     const int pooled_width, 
-    const at::Tensor& bottom_rois,
-    at::Tensor& top_data, 
-    at::Tensor& con_idx_x, 
-    at::Tensor& con_idx_y, 
+    torch::Tensor bottom_rois,
+    torch::Tensor top_data,
+    torch::Tensor con_idx_x,
+    torch::Tensor con_idx_y,
     cudaStream_t stream)
 {
     const int kThreadsPerBlock = 1024;
     const int output_size = num_rois * pooled_height * pooled_width * channels;
 
-    AT_DISPATCH_FLOATING_TYPES(bottom_data.scalar_type(), "RROIAlignForwardLaucher", [&]{
+    AT_DISPATCH_FLOATING_TYPES(bottom_data.type(), "RROIAlignForwardLaucher", [&]{
         RROIAlignForward<scalar_t><<<(output_size + kThreadsPerBlock - 1) / kThreadsPerBlock, kThreadsPerBlock, 0, stream>>>(
             output_size, 
-            bottom_data.data_ptr<scalar_t>(), 
+            bottom_data.data<scalar_t>(),
             spatial_scale, 
             height, 
             width, 
             channels, 
             pooled_height, 
             pooled_width, 
-            bottom_rois.data_ptr<scalar_t>(), 
-            top_data.data_ptr<scalar_t>(), 
-            con_idx_x.data_ptr<scalar_t>(), 
-            con_idx_y.data_ptr<scalar_t>());
+            bottom_rois.data<scalar_t>(),
+            top_data.data<scalar_t>(),
+            con_idx_x.data<scalar_t>(),
+            con_idx_y.data<scalar_t>());
     });
 
     THCudaCheck(cudaGetLastError());
@@ -310,21 +310,21 @@ int RROIAlignBackwardLaucher(
     const int channels,
     const int pooled_height,
     const int pooled_width,
-    const at::Tensor& bottom_rois,
-    at::Tensor& bottom_diff,
-    const at::Tensor& con_idx_x,
-    const at::Tensor& con_idx_y,
+    torch::Tensor bottom_rois,
+    torch::Tensor bottom_diff,
+    torch::Tensor con_idx_x,
+    torch::Tensor con_idx_y,
     cudaStream_t stream)
 {
     const int kThreadsPerBlock = 1024;
     const int output_size = num_rois * pooled_height * pooled_width * channels;//batch_size * height * width * channels;
 
-    AT_DISPATCH_FLOATING_TYPES(top_diff.scalar_type(), "RROIAlignForward", [&]{
+    AT_DISPATCH_FLOATING_TYPES(top_diff.type(), "RROIAlignForward", [&]{
         RROIAlignBackward<scalar_t><<<(output_size + kThreadsPerBlock - 1) / kThreadsPerBlock, kThreadsPerBlock, 0, stream>>>(
       output_size, 
-      top_diff.data_ptr<scalar_t>(), 
-      con_idx_x.data_ptr<scalar_t>(), 
-      con_idx_y.data_ptr<scalar_t>(), 
+      top_diff.data<scalar_t>(),
+      con_idx_x.data<scalar_t>(),
+      con_idx_y.data<scalar_t>(),
       num_rois, 
       spatial_scale, 
       height, 
@@ -332,8 +332,8 @@ int RROIAlignBackwardLaucher(
       channels, 
       pooled_height,
       pooled_width, 
-      bottom_diff.data_ptr<scalar_t>(), 
-      bottom_rois.data_ptr<scalar_t>());
+      bottom_diff.data<scalar_t>(),
+      bottom_rois.data<scalar_t>());
     });
     
     THCudaCheck(cudaGetLastError());

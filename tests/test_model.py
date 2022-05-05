@@ -239,6 +239,7 @@ def test_icdar_dataset():
 
 def test_rroi():
     path = 'FOTS/rroi_align/data/timg.jpeg'
+    #path = '/data/ocr/det/icdar2015/detection/test/imgs/img_47.jpg'
     # path = './data/grad.jpg'
     im_data = cv2.imread(path)
     img = im_data.copy()
@@ -259,10 +260,11 @@ def test_rroi():
     gt2 = np.asarray([[206,111],[199,95],[349,60],[355,80]])       # 中华人民共和国
     gt4 = np.asarray([[312,127],[304,105],[367,88],[374,114]])       # 份证
     gt5 = np.asarray([[133,168],[118,112],[175,100],[185,154]])      # 国徽
-    # gts = [gt1, gt2, gt3, gt4, gt5]
-    gts = [gt2, gt4, gt5]
+    gts = [gt1, gt2, gt3, gt4, gt5]
+    # gt6 = np.asarray([[634,51], [802,41], [810,83], [642,93]])
+    # gts = [gt6]
 
-    cv2.polylines(img, [gt2.astype(int)], isClosed=True, color=(0,0,255))
+    cv2.polylines(img, [gt2.astype(int)], isClosed=True, color=(0,255,0))
 
     colors = [(255, 0, 0),
               (0, 255, 0),
@@ -273,11 +275,11 @@ def test_rroi():
 
 
 
-    cv2.polylines(img, [gt4.astype(int)], isClosed=True, color=(0,0,255))
+    # cv2.polylines(img, [gt4.astype(int)], isClosed=True, color=(0,0,255))
     # for i, p in enumerate(gt4):
     #     cv2.circle(img, tuple(p), radius=5, color=colors[i])
 
-    cv2.polylines(img, [gt5.astype(int)], isClosed=True, color=(0,0,255))
+    # cv2.polylines(img, [gt5.astype(int)], isClosed=True, color=(0,0,255))
 
     # for i, p in enumerate(gt5):
     #     cv2.circle(img, tuple(p), radius=5, color=colors[i])
@@ -298,6 +300,17 @@ def test_rroi():
 
         angle_gt = (math.atan2((gt[2][1] - gt[1][1]), gt[2][0] - gt[1][0]) + math.atan2((gt[3][1] - gt[0][1]), gt[3][0] - gt[0][0]) ) / 2
         angle_gt = -angle_gt / 3.1415926535 * 180                       # 需要加个负号
+
+
+        # 01 23
+        # dw = gt[1, :] - gt[0, :]
+        # dh = gt[1, :] - gt[2, :]
+        # w = math.sqrt(dw[0] * dw[0] + dw[1] * dw[1])  # 宽度和高度
+        # h = math.sqrt(dh[0] * dh[0] + dh[1] * dh[1]) + random.randint(-2, 2)
+        #
+        # angle_gt = (math.atan2((gt[1][1] - gt[0][1]), gt[1][0] - gt[0][0]) + math.atan2((gt[2][1] - gt[3][1]),
+        #                                                                                 gt[2][0] - gt[3][0])) / 2
+        # angle_gt = -angle_gt / 3.1415926535 * 180  # 需要加个负号
 
         # rr = cv2.minAreaRect(gt)
         # center = rr[0]
@@ -332,11 +345,13 @@ def test_rroi():
 
     if debug:
         for i in range(pooled_feat.shape[0]):
-            x_d = pooled_feat.data.cpu().numpy()[i]
+            x_d = pooled_feat.detach().cpu().numpy()[i]
             x_data_draw = x_d.swapaxes(0, 2)
             x_data_draw = x_data_draw.swapaxes(0, 1)
 
             x_data_draw = np.asarray(x_data_draw, dtype=np.uint8)
+
+            x_data_draw = x_d.transpose((1, 2, 0)).astype(np.uint8)
             #cv2.imshow('im_data_gt %d' % i, x_data_draw)
             cv2.imwrite('./res%d.jpg' % i, x_data_draw)
 
