@@ -46,7 +46,7 @@ def get_extensions():
     sources = source_cpu
     extension = CppExtension
 
-    extra_compile_args = {"cxx": []}
+    extra_compile_args = {"cxx": ["-D_GLIBCXX_USE_CXX11_ABI=1"]}
     define_macros = []
 
     if torch.cuda.is_available() and CUDA_HOME is not None:
@@ -85,4 +85,4 @@ if __name__ == '__main__':
     packages=find_packages(exclude=("configs", "tests",)),
     # install_requires=requirements,
     ext_modules=get_extensions(),
-    cmdclass={"build_ext": torch.utils.cpp_extension.BuildExtension})
+    cmdclass={"build_ext": torch.utils.cpp_extension.BuildExtension.with_options(use_ninja=True)})

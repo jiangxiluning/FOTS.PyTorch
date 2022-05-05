@@ -1,6 +1,6 @@
 #include <torch/extension.h>
-#include <ATen/ATen.h>
-#include <c10/cuda/CUDAStream.h>
+
+
 #include <math.h>
 #include "rroi_align_kernel.h"
 
@@ -35,13 +35,12 @@ int rroi_align_forward_cuda(int pooled_height, int pooled_width, float spatial_s
     // Number of channels
     int num_channels = features.size(1);
 
-    cudaStream_t stream = c10::cuda::getCurrentCUDAStream();
 
     RROIAlignForwardLaucher(
         features, spatial_scale, num_rois, data_height,
         data_width, num_channels, pooled_height,
         pooled_width, rois,
-        output, idx_x, idx_y, stream);
+        output, idx_x, idx_y);
 
     return 1;
 }
@@ -77,12 +76,11 @@ int rroi_align_backward_cuda(int pooled_height, int pooled_width, float spatial_
     // Number of channels
     int num_channels = bottom_grad.size(1);
 
-    cudaStream_t stream = c10::cuda::getCurrentCUDAStream();
     RROIAlignBackwardLaucher(
         top_grad, spatial_scale, batch_size, num_rois, data_height,
         data_width, num_channels, pooled_height,
         pooled_width, rois, bottom_grad,
-        idx_x, idx_y, stream);
+        idx_x, idx_y);
 
     return 1;
 }

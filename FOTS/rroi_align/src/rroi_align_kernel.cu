@@ -1,10 +1,10 @@
 #include <torch/extension.h>
-#include <ATen/ATen.h>
-#include <ATen/cuda/CUDAContext.h>
-
-#include <THC/THC.h>
-#include <THC/THCAtomics.cuh>
-#include <THC/THCDeviceUtils.cuh>
+// #include <ATen/ATen.h>
+// #include <ATen/cuda/CUDAContext.h>
+//
+// #include <THC/THC.h>
+// #include <THC/THCAtomics.cuh>
+// #include <THC/THCDeviceUtils.cuh>
 
 #include <stdio.h>
 #include <vector>
@@ -268,14 +268,13 @@ int RROIAlignForwardLaucher(
     torch::Tensor bottom_rois,
     torch::Tensor top_data,
     torch::Tensor con_idx_x,
-    torch::Tensor con_idx_y,
-    cudaStream_t stream)
+    torch::Tensor con_idx_y)
 {
     const int kThreadsPerBlock = 1024;
     const int output_size = num_rois * pooled_height * pooled_width * channels;
 
     AT_DISPATCH_FLOATING_TYPES(bottom_data.type(), "RROIAlignForwardLaucher", [&]{
-        RROIAlignForward<scalar_t><<<(output_size + kThreadsPerBlock - 1) / kThreadsPerBlock, kThreadsPerBlock, 0, stream>>>(
+        RROIAlignForward<scalar_t><<<(output_size + kThreadsPerBlock - 1) / kThreadsPerBlock, kThreadsPerBlock, 0>>>(
             output_size, 
             bottom_data.data<scalar_t>(),
             spatial_scale, 
@@ -289,8 +288,6 @@ int RROIAlignForwardLaucher(
             con_idx_x.data<scalar_t>(),
             con_idx_y.data<scalar_t>());
     });
-
-    THCudaCheck(cudaGetLastError());
     return 1;
 }
 
@@ -301,7 +298,7 @@ int RROIAlignForwardLaucher(
 
 
 int RROIAlignBackwardLaucher(
-    const at::Tensor& top_diff,
+    torch::Tensor top_diff,
     const float spatial_scale,
     const int batch_size,
     const int num_rois,
@@ -313,14 +310,13 @@ int RROIAlignBackwardLaucher(
     torch::Tensor bottom_rois,
     torch::Tensor bottom_diff,
     torch::Tensor con_idx_x,
-    torch::Tensor con_idx_y,
-    cudaStream_t stream)
+    torch::Tensor con_idx_y)
 {
     const int kThreadsPerBlock = 1024;
     const int output_size = num_rois * pooled_height * pooled_width * channels;//batch_size * height * width * channels;
 
     AT_DISPATCH_FLOATING_TYPES(top_diff.type(), "RROIAlignForward", [&]{
-        RROIAlignBackward<scalar_t><<<(output_size + kThreadsPerBlock - 1) / kThreadsPerBlock, kThreadsPerBlock, 0, stream>>>(
+        RROIAlignBackward<scalar_t><<<(output_size + kThreadsPerBlock - 1) / kThreadsPerBlock, kThreadsPerBlock, 0>>>(
       output_size, 
       top_diff.data<scalar_t>(),
       con_idx_x.data<scalar_t>(),
@@ -335,7 +331,5 @@ int RROIAlignBackwardLaucher(
       bottom_diff.data<scalar_t>(),
       bottom_rois.data<scalar_t>());
     });
-    
-    THCudaCheck(cudaGetLastError());
     return 1;
 }
