@@ -35,7 +35,7 @@ class FOTSModel(LightningModule):
         self.detector = Detector(config)
         #self.roirotate = ROIRotate()
         self.roirotate = RRoiAlignFunction()
-        self.pooled_height = 8
+        self.pooled_height = 40
         self.spatial_scale = config.data_loader.scale
 
         self.max_transcripts_pre_batch = self.config.data_loader.max_transcripts_pre_batch
@@ -166,7 +166,7 @@ class FOTSModel(LightningModule):
                 maxratio = ratios.max().item()
                 pooled_width = np.ceil(self.pooled_height * maxratio).astype(int)
                 roi_features = self.roirotate.apply(feature_map, rois, self.pooled_height, pooled_width, self.spatial_scale)
-                self.debug_rois(images, rois, self.pooled_height, pooled_width, 1.0)
+                # self.debug_rois(images, rois, self.pooled_height, pooled_width, 1.0)
 
                 lengths = torch.ceil(self.pooled_height * ratios)
 
@@ -198,6 +198,9 @@ class FOTSModel(LightningModule):
                    scale_factor: float=1.0):
 
         resized_image = nn.functional.interpolate(images, scale_factor=scale_factor, mode='bilinear')
+        resized_image = resized_image.contiguous()
+        rois = rois.contiguous()
+
         roi_features = self.roirotate.apply(resized_image, rois, pooled_height, pooled_width, scale_factor)
 
         resized_image = resized_image.permute(0, 2, 3, 1).contiguous().detach().cpu().numpy()

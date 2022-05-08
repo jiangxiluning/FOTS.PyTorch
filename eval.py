@@ -123,7 +123,6 @@ def main(args: argparse.Namespace):
                 result.transcripts.append(transcript)
             else:
                 result.transcripts.append(None)
-        break
 
     for k, v in image_dict.items():
         output_image_path = (output_image_dir / k).with_suffix('.jpg')

@@ -238,12 +238,12 @@ def test_icdar_dataset():
 
 
 def test_rroi():
-    path = 'FOTS/rroi_align/data/timg.jpeg'
-    #path = '/data/ocr/det/icdar2015/detection/test/imgs/img_47.jpg'
+    #path = 'FOTS/rroi_align/data/timg.jpeg'
+    path = '/data/ocr/det/icdar2015/detection/test/imgs/img_47.jpg'
     # path = './data/grad.jpg'
     im_data = cv2.imread(path)
     img = im_data.copy()
-    im_data = torch.from_numpy(im_data).unsqueeze(0).permute(0,3,1,2)
+    im_data = torch.from_numpy(im_data).unsqueeze(0).permute(0,3,1,2).contiguous()
     im_data = im_data
     im_data = im_data.to(torch.float).cuda()
     im_data = torch.tensor(im_data, requires_grad=True)
@@ -261,8 +261,10 @@ def test_rroi():
     gt4 = np.asarray([[312,127],[304,105],[367,88],[374,114]])       # 份证
     gt5 = np.asarray([[133,168],[118,112],[175,100],[185,154]])      # 国徽
     gts = [gt1, gt2, gt3, gt4, gt5]
-    # gt6 = np.asarray([[634,51], [802,41], [810,83], [642,93]])
-    # gts = [gt6]
+
+    gt6 = np.asarray([[634,51], [802,41], [810,83], [642,93]])
+    gts = [gt6]
+    gt2 = gt6
 
     cv2.polylines(img, [gt2.astype(int)], isClosed=True, color=(0,255,0))
 
@@ -293,24 +295,24 @@ def test_rroi():
     for i,gt in enumerate(gts):
         center = (gt[0, :] + gt[1, :] + gt[2, :] + gt[3, :]) / 4        # 求中心点
 
-        dw = gt[2, :] - gt[1, :]
-        dh =  gt[1, :] - gt[0, :]
-        w = math.sqrt(dw[0] * dw[0] + dw[1] * dw[1])                    # 宽度和高度
-        h = math.sqrt(dh[0] * dh[0] + dh[1] * dh[1])  + random.randint(-2, 2)
-
-        angle_gt = (math.atan2((gt[2][1] - gt[1][1]), gt[2][0] - gt[1][0]) + math.atan2((gt[3][1] - gt[0][1]), gt[3][0] - gt[0][0]) ) / 2
-        angle_gt = -angle_gt / 3.1415926535 * 180                       # 需要加个负号
+        # dw = gt[2, :] - gt[1, :]
+        # dh =  gt[1, :] - gt[0, :]
+        # w = math.sqrt(dw[0] * dw[0] + dw[1] * dw[1])                    # 宽度和高度
+        # h = math.sqrt(dh[0] * dh[0] + dh[1] * dh[1])  + random.randint(-2, 2)
+        #
+        # angle_gt = (math.atan2((gt[2][1] - gt[1][1]), gt[2][0] - gt[1][0]) + math.atan2((gt[3][1] - gt[0][1]), gt[3][0] - gt[0][0]) ) / 2
+        # angle_gt = -angle_gt / 3.1415926535 * 180                       # 需要加个负号
 
 
         # 01 23
-        # dw = gt[1, :] - gt[0, :]
-        # dh = gt[1, :] - gt[2, :]
-        # w = math.sqrt(dw[0] * dw[0] + dw[1] * dw[1])  # 宽度和高度
-        # h = math.sqrt(dh[0] * dh[0] + dh[1] * dh[1]) + random.randint(-2, 2)
-        #
-        # angle_gt = (math.atan2((gt[1][1] - gt[0][1]), gt[1][0] - gt[0][0]) + math.atan2((gt[2][1] - gt[3][1]),
-        #                                                                                 gt[2][0] - gt[3][0])) / 2
-        # angle_gt = -angle_gt / 3.1415926535 * 180  # 需要加个负号
+        dw = gt[1, :] - gt[0, :]
+        dh = gt[1, :] - gt[2, :]
+        w = math.sqrt(dw[0] * dw[0] + dw[1] * dw[1])  # 宽度和高度
+        h = math.sqrt(dh[0] * dh[0] + dh[1] * dh[1]) + random.randint(-2, 2)
+
+        angle_gt = (math.atan2((gt[1][1] - gt[0][1]), gt[1][0] - gt[0][0]) + math.atan2((gt[2][1] - gt[3][1]),
+                                                                                        gt[2][0] - gt[3][0])) / 2
+        angle_gt = -angle_gt / 3.1415926535 * 180  # 需要加个负号
 
         # rr = cv2.minAreaRect(gt)
         # center = rr[0]

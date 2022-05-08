@@ -39,14 +39,12 @@ def get_extensions():
     this_dir = os.path.dirname(os.path.abspath(__file__))
     extensions_dir = os.path.join(this_dir,"src")
 
-    source_cpu = glob.glob(os.path.join(extensions_dir, "*.c"))
-    source_cpu += glob.glob(os.path.join(extensions_dir, "*.cpp"))
+    # source_cpu = glob.glob(os.path.join(extensions_dir, "*.c"))
+    source_cpu = glob.glob(os.path.join(extensions_dir, "*.cpp"))
     source_cuda = glob.glob(os.path.join(extensions_dir, "*.cu"))
 
     sources = source_cpu
     extension = CppExtension
-
-    extra_compile_args = {"cxx": ["-D_GLIBCXX_USE_CXX11_ABI=1"]}
     define_macros = []
 
     if torch.cuda.is_available() and CUDA_HOME is not None:
@@ -54,11 +52,6 @@ def get_extensions():
         sources += source_cuda
         print(sources)
         define_macros += [("WITH_CUDA", None)]
-        extra_compile_args["nvcc"] = [
-            "-D__CUDA_NO_HALF_OPERATORS__",
-            "-D__CUDA_NO_HALF_CONVERSIONS__",
-            "-D__CUDA_NO_HALF2_OPERATORS__",
-        ]
 
     sources = [os.path.join(extensions_dir, s) for s in sources]
 
@@ -70,7 +63,6 @@ def get_extensions():
             sources,
             include_dirs=include_dirs,
             define_macros=define_macros,
-            extra_compile_args=extra_compile_args,
         )
     ]
 
@@ -79,10 +71,6 @@ def get_extensions():
 if __name__ == '__main__':
     setup(
     name="rotate_roi",
-    # version="0.1",
-    # author="fmassa",
-    # url="https://github.com/facebookresearch/maskrcnn-benchmark",
     packages=find_packages(exclude=("configs", "tests",)),
-    # install_requires=requirements,
     ext_modules=get_extensions(),
-    cmdclass={"build_ext": torch.utils.cpp_extension.BuildExtension.with_options(use_ninja=True)})
+    cmdclass={"build_ext": BuildExtension.with_options(use_ninja=True)})
