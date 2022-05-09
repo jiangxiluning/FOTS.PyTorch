@@ -94,7 +94,7 @@ def main(args: argparse.Namespace):
                 stem_key = pathlib.Path(p).stem
                 image_dict[stem_key] = Result(p, [], [], pred_size=(geo_maps.shape[2] / config.data_loader.scale,
                                                                     geo_maps.shape[3] / config.data_loader.scale))
-            break
+            continue
 
         mapping = output['mapping'].cpu().numpy().astype(np.int)
         boxes = output['bboxes'].cpu().numpy()

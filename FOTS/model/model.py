@@ -35,7 +35,7 @@ class FOTSModel(LightningModule):
         self.detector = Detector(config)
         #self.roirotate = ROIRotate()
         self.roirotate = RRoiAlignFunction()
-        self.pooled_height = 40
+        self.pooled_height = 8
         self.spatial_scale = config.data_loader.scale
 
         self.max_transcripts_pre_batch = self.config.data_loader.max_transcripts_pre_batch
@@ -118,7 +118,7 @@ class FOTSModel(LightningModule):
             for i in range(score.shape[0]):
                 s = score[i]
                 g = geometry[i]
-                bb = get_boxes(s, g, score_thresh=0.2, nms_thresh=0.5)
+                bb = get_boxes(s, g, score_thresh=0.2)
                 if bb is not None:
                     roi = []
                     for _, gt in enumerate(bb[:, :8].reshape(-1, 4, 2)):
@@ -210,9 +210,12 @@ class FOTSModel(LightningModule):
 
         rois = rois.detach().cpu().numpy()
         roi_feature = roi_features.permute(0, 2, 3, 1).contiguous().detach().cpu().numpy()
+        padding_mask = roi_feature != 0
+
         roi_feature *= np.array([0.229, 0.224, 0.225])
-        roi_feature *= np.array([0.485, 0.456, 0.406])
+        roi_feature +=  np.array([0.485, 0.456, 0.406])
         roi_feature *= 255
+        roi_feature = roi_feature * padding_mask
 
         image_indices = rois[:, 0].astype(int)
 
