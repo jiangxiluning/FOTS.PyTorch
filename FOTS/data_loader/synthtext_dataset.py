@@ -24,7 +24,7 @@ import imgaug.augmentables.segmaps as ia_segmaps
 
 from .transforms import Transform
 from .datautils import *
-from ..utils.util import str_label_converter
+from ..utils.util import str_label_converter, dump_results
 
 from . import utils as data_utils
 
@@ -62,7 +62,8 @@ class SynthTextDataset(Dataset):
                   polygons: typing.List[typing.List[float]],
                   score_map: np.ndarray,
                   training_mask: np.ndarray,
-                  rois: np.ndarray):
+                  rois: np.ndarray,
+                  transcripts: typing.List[str] = None):
 
         polygon_list = []
         for polygon in polygons:
@@ -87,7 +88,7 @@ class SynthTextDataset(Dataset):
 
         rois_list = []
 
-        for roi in rois:
+        for roi, transcript in zip(rois, transcripts):
             center = (roi[0], roi[1])
             wh = (roi[3], roi[2])
             angle = -roi[4]
@@ -95,6 +96,10 @@ class SynthTextDataset(Dataset):
             rois_list.append(ia_polys.Polygon(
                 box
             ))
+            origin = box[0]
+            font = cv2.FONT_HERSHEY_PLAIN
+            image = cv2.putText(image, transcript, (int(origin[0]), int(origin[1] - 10)), font, 1, (0, 255, 0), 2)
+
         rois_on_image = ia_polys.PolygonsOnImage(polygons=rois_list, shape=image.shape)
         new_image = rois_on_image.draw_on_image(image)
         cv2.imwrite(image_name + '_rois.jpg', new_image[:,:,::-1])
@@ -134,6 +139,8 @@ class SynthTextDataset(Dataset):
                 h, w, _ = im.shape
                 text_polys = check_and_validate_polys(text_polys, (h, w))
 
+                dump_results(im.copy(), image_path.stem + '_before.jpg', text_polys, transcripts)
+
                 max_tries = 5
                 if self.transform:
                     while True and (max_tries != 0):
@@ -150,6 +157,7 @@ class SynthTextDataset(Dataset):
                         return self.__getitem__(np.random.randint(0, len(self)))
 
                 polys = np.stack([poly.coords for poly in text_polys])
+                dump_results(im.copy(), image_path.stem + '_after.jpg', polys, transcripts)
                 score_map, geo_map, training_mask, rectangles, rois = data_utils.get_score_geo(im, polys,
                                                                                                np.ones(polys.shape[0]),
                                                                                                self.scale, self.size)
@@ -167,7 +175,8 @@ class SynthTextDataset(Dataset):
                                    score_map=score_map,
                                    training_mask=training_mask,
                                    image_name=image_path.stem,
-                                   rois=rois)
+                                   rois=rois,
+                                   transcripts=transcripts)
 
                 transcripts = str_label_converter.encode(transcripts)
 

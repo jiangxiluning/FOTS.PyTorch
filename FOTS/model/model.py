@@ -78,7 +78,7 @@ class FOTSModel(LightningModule):
 
             # for memory concern, we fix the number of transcript to train
             sampled_indices = torch.randperm(rois.size(0))[:self.max_transcripts_pre_batch]
-            rois = rois[sampled_indices]
+            rois = rois[: self.max_transcripts_pre_batch]
 
             ratios = rois[:, 4] / rois[:, 3]
             maxratio = ratios.max().item()
@@ -87,7 +87,7 @@ class FOTSModel(LightningModule):
             roi_features = self.roirotate.apply(feature_map, rois, self.pooled_height, pooled_width, self.spatial_scale)
 
             # roi_features_debug = self.roirotate.apply(images[:, :, ::4, ::4], rois, self.pooled_height, pooled_width, self.spatial_scale)
-            # self.debug_rois(images, rois, roi_features_debug)
+            self.debug_rois(images, rois, self.pooled_height, pooled_width, 1.0)
 
             lengths = torch.ceil(self.pooled_height * ratios)
 
@@ -242,8 +242,8 @@ class FOTSModel(LightningModule):
                               rois=rois)
 
         sampled_indices = output['indices']
-        y_true_recog = (input_data['transcripts'][0][sampled_indices],
-                        input_data['transcripts'][1][sampled_indices])
+        y_true_recog = (input_data['transcripts'][0][:self.max_transcripts_pre_batch],
+                        input_data['transcripts'][1][:self.max_transcripts_pre_batch])
 
         loss_dict = self.loss(y_true_cls=input_data['score_maps'],
                               y_pred_cls=output['score_maps'],

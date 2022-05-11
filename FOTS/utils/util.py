@@ -43,30 +43,23 @@ def show_box(image_name, image, box, transcirpt, isFeaturemap=False):
     cv2.imwrite(image_name, img)
     # cv2.waitKey()
 
-def dump_results(image_path: str,
-                 output_dir: str,
+def dump_results(image: np.ndarray,
+                 output_path,
                  boxes: numpy.ndarray,
                  transrcipts: typing.List[str]):
 
     assert  len(boxes) == len(transrcipts)
-    image = cv2.imread(image_path, cv2.IMREAD_COLOR)
-    saved_path = pathlib.Path(output_dir)
-    saved_path.mkdir(exist_ok=True)
 
     for i, box in enumerate(boxes):
-        if box.shape[1] == 2:
-            pts = box.T.astype(np.int)
-        else:
-            pts = box.astype(np.int)
-        image = cv2.polylines(image, [pts], True, [150, 200, 200])
+        pts = box.astype(np.int)
+        image = cv2.polylines(image, [pts], True, [0, 255, 0], thickness=1)
 
         if transrcipts:
             origin = pts[0]
             font = cv2.FONT_HERSHEY_PLAIN
-            img = cv2.putText(image, transrcipts[i], (origin[0], origin[1] - 10), font, 0.5, (255, 255, 255))
+            image = cv2.putText(image, transrcipts[i], (origin[0], origin[1] + 10), font, 1, (0, 255, 0))
 
-        image_name = pathlib.Path(image_path).stem
-        cv2.imwrite(str((saved_path / 'res_' + image_name).with_suffix('.jpg')), img)
+        cv2.imwrite(output_path, image)
 
 
 
