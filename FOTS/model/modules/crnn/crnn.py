@@ -5,17 +5,17 @@ class BidirectionalLSTM(nn.Module):
 
     def __init__(self, nIn, nHidden, nOut):
         super(BidirectionalLSTM, self).__init__()
-        self.rnn = nn.LSTM(nIn, nHidden, bidirectional=True)
+        self.rnn = nn.LSTM(nIn, nHidden, bidirectional=True, batch_first=True)
         self.embedding = nn.Linear(nHidden * 2, nOut)
 
     def forward(self, input, lengths=None):
         # self.rnn.flatten_parameters()
         hidden, _ = self.rnn(input)  # [T, b, h * 2]
 
-        hidden = torch.layer_norm(hidden, normalized_shape=hidden.shape[1:])
-        b, t, h = hidden.size()
-        output = self.embedding(hidden.view(t*b, h))
-        output = output.view(b, t, -1)
+        # hidden = torch.layer_norm(hidden, normalized_shape=hidden.shape[1:])
+        # b, t, h = hidden.size()
+        output = self.embedding(hidden)
+        # output = output.view(b, t, -1)
         return output
 
 

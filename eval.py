@@ -61,7 +61,8 @@ def main(args: argparse.Namespace):
     with_gpu = with_gpu & args.cuda
 
     if with_gpu:
-        device = torch.device('cuda:{}'.format(args.gpu))
+        torch.cuda.set_device(args.gpu)
+        device = torch.device('cuda')
     else:
         device = torch.device('cpu')
 

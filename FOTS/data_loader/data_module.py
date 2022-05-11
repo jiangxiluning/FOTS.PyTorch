@@ -42,13 +42,13 @@ class SynthTextDataModule(LightningDataModule):
                                          scale=self.config.data_loader.scale)
 
 
-        transform = Transform(is_training=False, output_size=(self.config.data_loader.size,
-                                                             self.config.data_loader.size))
-        self.val_ds = SynthTextDataset(data_root=self.config.data_loader.data_dir,
-                                         transform=transform,
-                                         vis=False,
-                                         size=self.config.data_loader.size,
-                                         scale=self.config.data_loader.scale)
+        # transform = Transform(is_training=False, output_size=(self.config.data_loader.size,
+        #                                                      self.config.data_loader.size))
+        # self.val_ds = SynthTextDataset(data_root=self.config.data_loader.data_dir,
+        #                                  transform=transform,
+        #                                  vis=False,
+        #                                  size=self.config.data_loader.size,
+        #                                  scale=self.config.data_loader.scale)
 
     def train_dataloader(self) -> Any:
         return DataLoader(dataset=self.train_ds,
@@ -58,13 +58,13 @@ class SynthTextDataModule(LightningDataModule):
                           shuffle=self.config.data_loader.shuffle,
                           pin_memory=False)
 
-    def val_dataloader(self) -> Union[DataLoader, List[DataLoader]]:
-        return DataLoader(dataset=self.val_ds,
-                          batch_size=self.config.data_loader.batch_size,
-                          num_workers=self.config.data_loader.workers,
-                          collate_fn=collate_fn,
-                          shuffle=False,
-                          pin_memory=False)
+    # def val_dataloader(self) -> Union[DataLoader, List[DataLoader]]:
+    #     return DataLoader(dataset=self.val_ds,
+    #                       batch_size=self.config.data_loader.batch_size,
+    #                       num_workers=self.config.data_loader.workers,
+    #                       collate_fn=collate_fn,
+    #                       shuffle=False,
+    #                       pin_memory=False)
 
 
 class ICDARDataModule(LightningDataModule):
