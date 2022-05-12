@@ -151,10 +151,10 @@ class ICDARDataset(Dataset):
                 if self.transform:
                     while True and (max_tries != 0):
                         transformed_im, transformed_text_polys = self.transform(im, text_polys)
-                        valid_text_polys = [polygon for polygon in transformed_text_polys if polygon.is_fully_within_image(image=im)]
+                        valid_text_polys = [polygon for polygon in transformed_text_polys if polygon.is_fully_within_image(image=transformed_im)]
                         if len(valid_text_polys) > 0:
                             text_polys = valid_text_polys
-                            transcripts = [transcripts[i] for i, polygon in enumerate(text_polys) if polygon.is_fully_within_image(image=im)]
+                            transcripts = [transcripts[i] for i, polygon in enumerate(text_polys) if polygon.is_fully_within_image(image=transformed_im)]
                             im = transformed_im
                             break
                         max_tries -= 1

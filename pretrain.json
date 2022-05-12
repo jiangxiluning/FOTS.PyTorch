@@ -1,17 +1,17 @@
 {
     "name": "pretrain",
     "cuda": true,
-    "gpus": [0, 1],
+    "gpus": [0],
     "precision": 32,
-    "backbone_weights": "/home/luning/dev/projects/FOTS.PyTorch/vision-0.9.0",
-    "pretrain": "",
+    "backbone_weights": "./vision-0.9.0",
+    "pretrain": "/home/luning/dev/projects/FOTS.PyTorch/saved/pretrain/checkpoints/epoch=1-step=199999.ckpt",
     "data_loader": {
         "dataset":"synth800k",
         "data_dir": "/home/luning/dev/data/SynthText800k/detection/",
-        "batch_size": 8,
+        "batch_size": 4,
         "shuffle": true,
-        "workers": 8,
-        "max_transcripts_pre_batch": 32,
+        "workers": 1,
+        "max_transcripts_pre_batch": 16,
         "size": 640,
         "scale": 0.25
     },

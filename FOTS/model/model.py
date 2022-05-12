@@ -77,7 +77,6 @@ class FOTSModel(LightningModule):
             # there are some hard samples, ###
 
             # for memory concern, we fix the number of transcript to train
-            sampled_indices = torch.randperm(rois.size(0))[:self.max_transcripts_pre_batch]
             rois = rois[: self.max_transcripts_pre_batch]
 
             ratios = rois[:, 4] / rois[:, 3]
@@ -85,9 +84,7 @@ class FOTSModel(LightningModule):
             pooled_width = np.ceil(self.pooled_height * maxratio).astype(int)
 
             roi_features = self.roirotate.apply(feature_map, rois, self.pooled_height, pooled_width, self.spatial_scale)
-
-            # roi_features_debug = self.roirotate.apply(images[:, :, ::4, ::4], rois, self.pooled_height, pooled_width, self.spatial_scale)
-            self.debug_rois(images, rois, self.pooled_height, pooled_width, 1.0)
+            # self.debug_rois(images, rois, self.pooled_height, pooled_width, 1.0)
 
             lengths = torch.ceil(self.pooled_height * ratios)
 
@@ -101,8 +98,7 @@ class FOTSModel(LightningModule):
                         geo_maps=geo_map,
                         transcripts=(preds, lengths),
                         bboxes=pred_boxes,
-                        mapping=pred_mapping,
-                        indices=sampled_indices)
+                        mapping=pred_mapping)
             return data
 
         else:
@@ -153,8 +149,7 @@ class FOTSModel(LightningModule):
                             geo_maps=geo_map,
                             transcripts=(None, None),
                             bboxes=pred_boxes,
-                            mapping=pred_mapping,
-                            indices=None)
+                            mapping=pred_mapping)
                 return data
 
             if len(rois) > 0:
@@ -177,16 +172,14 @@ class FOTSModel(LightningModule):
                             geo_maps=geo_map,
                             transcripts=(preds, lengths),
                             bboxes=pred_boxes,
-                            mapping=pred_mapping,
-                            indices=None)
+                            mapping=pred_mapping)
                 return data
             else:
                 data = dict(score_maps=score_map,
                             geo_maps=geo_map,
                             transcripts=(None, None),
                             bboxes=None,
-                            mapping=None,
-                            indices=None)
+                            mapping=None)
 
                 return data
 
@@ -241,7 +234,6 @@ class FOTSModel(LightningModule):
                               boxes=bboxes,
                               rois=rois)
 
-        sampled_indices = output['indices']
         y_true_recog = (input_data['transcripts'][0][:self.max_transcripts_pre_batch],
                         input_data['transcripts'][1][:self.max_transcripts_pre_batch])
 
@@ -281,28 +273,6 @@ class FOTSModel(LightningModule):
 
         if pred_boxes is None:
             return dict(image_names=image_names, boxes_list=boxes_list, transcripts_list=transcripts_list)
-
-        # pred_transcripts, pred_lengths = output['transcripts']
-        # indices = output['indices']
-        # # restore order
-        # # pred_transcripts = pred_transcripts[:, ::-1, :][indices[::-1]]
-        # # pred_lengths = pred_lengths[:, ::-1, :][indices[::-1]]
-        #
-        # for index in range(len(image_names)):
-        #     selected_indices = np.argwhere(pred_mapping == index)
-        #     boxes = pred_boxes[selected_indices]
-        #     transcripts = pred_transcripts[:, selected_indices, ]
-        #     lengths = pred_lengths[selected_indices]
-        #     boxes, transcripts = self.postprocessor(boxes=boxes, transcripts=(transcripts, lengths))
-        #     boxes_list.append(boxes)
-        #     transcripts_list.append(transcripts)
-        #     image_path = '/media/mydisk/ocr/det/e2e/detection/test/imgs/' + image_names[index]
-        #     visualize(image_path, boxes, transcripts)
-        #
-        #     # visualize_box
-        #
-        # return dict(image_names=image_names, boxes_list=boxes_list, transcripts_list=transcripts_list)
-
 
 class Recognizer(BaseModel):
 

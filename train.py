@@ -25,7 +25,7 @@ def main(config, resume: bool):
         if config.pretrain:
             assert pathlib.Path(config.pretrain).exists()
             logger.info('Finetune with: {}'.format(config.pretrain))
-            model.load_from_checkpoint(config.pretrain, config=config, map_location='cpu')
+            model = model.load_from_checkpoint(config.pretrain, config=config, map_location='cpu')
             resume_ckpt = None
         else:
             resume_ckpt = None

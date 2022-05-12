@@ -139,16 +139,14 @@ class SynthTextDataset(Dataset):
                 h, w, _ = im.shape
                 text_polys = check_and_validate_polys(text_polys, (h, w))
 
-                dump_results(im.copy(), image_path.stem + '_before.jpg', text_polys, transcripts)
-
                 max_tries = 5
                 if self.transform:
                     while True and (max_tries != 0):
                         transformed_im, transformed_text_polys = self.transform(im, text_polys)
-                        valid_text_polys = [polygon for polygon in transformed_text_polys if polygon.is_fully_within_image(image=im)]
+                        valid_text_polys = [polygon for polygon in transformed_text_polys if polygon.is_fully_within_image(image=transformed_im)]
                         if len(valid_text_polys) > 0:
                             text_polys = valid_text_polys
-                            transcripts = [transcripts[i] for i, polygon in enumerate(text_polys) if polygon.is_fully_within_image(image=im)]
+                            transcripts = [transcripts[i] for i, polygon in enumerate(text_polys) if polygon.is_fully_within_image(image=transformed_im)]
                             im = transformed_im
                             break
                         max_tries -= 1
@@ -157,7 +155,6 @@ class SynthTextDataset(Dataset):
                         return self.__getitem__(np.random.randint(0, len(self)))
 
                 polys = np.stack([poly.coords for poly in text_polys])
-                dump_results(im.copy(), image_path.stem + '_after.jpg', polys, transcripts)
                 score_map, geo_map, training_mask, rectangles, rois = data_utils.get_score_geo(im, polys,
                                                                                                np.ones(polys.shape[0]),
                                                                                                self.scale, self.size)

@@ -37,7 +37,7 @@ class SynthTextDataModule(LightningDataModule):
                                                              self.config.data_loader.size))
         self.train_ds = SynthTextDataset(data_root=self.config.data_loader.data_dir,
                                          transform=transform,
-                                         vis=True,
+                                         vis=False,
                                          size=self.config.data_loader.size,
                                          scale=self.config.data_loader.scale)
 
