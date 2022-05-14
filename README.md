@@ -47,8 +47,20 @@ This is a PyTorch implementation of [FOTS](https://arxiv.org/abs/1801.01671).
 ## Evaluation
 
 ```
-python eval.py -m <model.tar.gz> -i <input_images_folder> -o <output_folders>
+python eval.py 
+-c
+finetune.json
+-m
+<your ckpt>
+-i
+<icdar2015 folder contains train and test>
+--detection    
+-o
+./results
+--cuda
 ```
+
+with `--detection` flag to evaluate detection only or without flag to evaluate e2e
 
 ## Benchmarking and Models (Coming soon!)
 

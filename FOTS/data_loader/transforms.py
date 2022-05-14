@@ -50,21 +50,33 @@ class Transform:
                                                  width='keep'))
             crop = iaa.CropToFixedSize(width=self.cropped_size[0], height=self.cropped_size[1])
             fix_resize = iaa.Resize(size=self.output_size)
-            blur = iaa.GaussianBlur()
-            blur = iaa.Sometimes(p=self.blur_prob,
-                                 then_list=blur)
-            color_jitter = iaa.MultiplyBrightness()
-            color_jitter = iaa.Sometimes(p=self.color_jitter_prob,
-                                         then_list=color_jitter)
+
+
+            # blur = iaa.GaussianBlur()
+            # blur = iaa.Sometimes(p=self.blur_prob,
+            #                      then_list=blur)
+
+            brightness = iaa.MultiplyBrightness((0.5, 1.5))
+            brightness = iaa.Sometimes(self.color_jitter_prob, then_list=brightness)
+
+            saturation = iaa.MultiplySaturation((0.5, 1.5))
+            saturation = iaa.Sometimes(self.color_jitter_prob, then_list=saturation)
+
+            contrast = iaa.LinearContrast(0.5)
+            contrast = iaa.Sometimes(self.color_jitter_prob, then_list=contrast)
+
+            hue = iaa.MultiplyHue()
+            hue = iaa.Sometimes(self.color_jitter_prob, then_list=hue)
 
             augs = [resize,
                     rotate,
                     resize_height,
                     crop,
                     fix_resize,
-                    blur,
-                    color_jitter]
-
+                    brightness,
+                    saturation,
+                    contrast,
+                    hue]
             ia = iaa.Sequential(augs)
         else:
             fix_resize = iaa.Resize(size=self.output_size)

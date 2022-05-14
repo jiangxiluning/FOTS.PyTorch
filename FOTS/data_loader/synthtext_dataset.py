@@ -139,19 +139,28 @@ class SynthTextDataset(Dataset):
                 h, w, _ = im.shape
                 text_polys = check_and_validate_polys(text_polys, (h, w))
 
-                max_tries = 5
+                max_tries = 10
                 if self.transform:
-                    while True and (max_tries != 0):
+                    while max_tries > 0:
                         transformed_im, transformed_text_polys = self.transform(im, text_polys)
-                        valid_text_polys = [polygon for polygon in transformed_text_polys if polygon.is_fully_within_image(image=transformed_im)]
-                        if len(valid_text_polys) > 0:
-                            text_polys = valid_text_polys
-                            transcripts = [transcripts[i] for i, polygon in enumerate(text_polys) if polygon.is_fully_within_image(image=transformed_im)]
+
+                        valid_polygons = []
+                        valid_transcripts = []
+                        for i, polygon in enumerate(transformed_text_polys):
+                            if polygon.is_fully_within_image(image=transformed_im):
+                                valid_polygons.append(polygon)
+                                valid_transcripts.append(transcripts[i])
+
+                        if len(valid_polygons) > 0:
+                            text_polys = valid_polygons
+                            transcripts = valid_transcripts
                             im = transformed_im
                             break
+
                         max_tries -= 1
 
                     if max_tries == 0:
+                        # loguru.logger.debug('Max tries has reached.')
                         return self.__getitem__(np.random.randint(0, len(self)))
 
                 polys = np.stack([poly.coords for poly in text_polys])
