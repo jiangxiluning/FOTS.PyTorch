@@ -114,7 +114,7 @@ class FOTSModel(LightningModule):
             for i in range(score.shape[0]):
                 s = score[i]
                 g = geometry[i]
-                bb = get_boxes(s, g, score_thresh=0.2)
+                bb = get_boxes(s, g, score_thresh=0.9)
                 if bb is not None:
                     roi = []
                     for _, gt in enumerate(bb[:, :8].reshape(-1, 4, 2)):
@@ -233,7 +233,7 @@ class FOTSModel(LightningModule):
         output = self.forward(images=input_data['images'],
                               boxes=bboxes,
                               rois=rois)
-
+        labels = input_data['labels']
         y_true_recog = (input_data['transcripts'][0][:self.max_transcripts_pre_batch],
                         input_data['transcripts'][1][:self.max_transcripts_pre_batch])
 
@@ -243,7 +243,8 @@ class FOTSModel(LightningModule):
                               y_pred_geo=output['geo_maps'],
                               y_true_recog=y_true_recog,
                               y_pred_recog=output['transcripts'],
-                              training_mask=input_data['training_masks'])
+                              training_mask=input_data['training_masks'],
+                              labels=labels[:self.max_transcripts_pre_batch])
 
         loss = loss_dict['reg_loss'] + loss_dict['cls_loss'] + loss_dict['recog_loss']
         self.log('loss', loss, logger=True)

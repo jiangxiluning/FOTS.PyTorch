@@ -68,8 +68,6 @@ class ICDARDataset(Dataset):
                     x1, y1, x2, y2, x3, y3, x4, y4 = list(map(float, text[:8]))
                     bbox = [[x1, y1], [x2, y2], [x3, y3], [x4, y4]]
                     transcript = text[8]
-                    if transcript == '###' and self.training:
-                        continue
                     bboxes.append(bbox)
                     texts.append(transcript)
 
@@ -108,10 +106,11 @@ class ICDARDataset(Dataset):
             for i, p in enumerate(polygon.reshape(4, 2)):
                 cv2.circle(new_image, tuple(p), radius=5, color=colors[i])
 
-        cv2.imwrite(image_name + '.jpg', new_image[:, :, ::-1])
+        cv2.imwrite(image_name + '_bbox.jpg', new_image[:, :, ::-1])
 
         rois_list = []
 
+        new_image = image.copy()
         for roi, transcript in zip(rois, transcripts):
             center = (roi[0], roi[1])
             wh = (roi[3], roi[2])
@@ -122,19 +121,20 @@ class ICDARDataset(Dataset):
             ))
             origin = box[0]
             font = cv2.FONT_HERSHEY_PLAIN
-            image = cv2.putText(image, transcript, (int(origin[0]), int(origin[1] - 10)), font, 1, (0, 255, 0), 2)
+            new_image = cv2.putText(new_image, transcript, (int(origin[0]), int(origin[1] + 10)), font, 1, (0, 255, 0), 1)
 
         rois_on_image = ia_polys.PolygonsOnImage(polygons=rois_list, shape=image.shape)
-        new_image = rois_on_image.draw_on_image(image)
+        new_image = rois_on_image.draw_on_image(new_image)
         cv2.imwrite(image_name + '_rois.jpg', new_image[:, :, ::-1])
 
         score_map = ia_segmaps.SegmentationMapsOnImage(score_map.astype(dtype=np.uint8), shape=image.shape)
         new_image = score_map.draw_on_image(image.astype(dtype=np.uint8))
         cv2.imwrite(image_name + '_score.jpg', new_image[0][:, :, ::-1])
 
-        training_mask = ia_segmaps.SegmentationMapsOnImage(training_mask.astype(dtype=np.uint8), shape=image.shape)
-        new_image = training_mask.draw_on_image(image.astype(dtype=np.uint8))
-        cv2.imwrite(image_name + '_mask.jpg', new_image[0][:, :, ::-1])
+
+        training_mask = cv2.resize(training_mask, dsize=(image.shape[1], image.shape[0]))
+        new_image = image * (1 - training_mask[:,:, None])
+        cv2.imwrite(image_name + '_mask.jpg', new_image[:, :, ::-1])
 
     def __getitem__(self, index):
         try:
@@ -177,8 +177,10 @@ class ICDARDataset(Dataset):
 
                 polys = np.stack([poly.coords for poly in text_polys])
                 # dump_results(im, image_path.stem + '_after.jpg', polys, transcripts)
+
+                labels = [0 if t == '###' else 1 for t in transcripts]
                 score_map, geo_map, training_mask, rectangles, rois = data_utils.get_score_geo(im, polys,
-                                                                                               np.ones(polys.shape[0]),
+                                                                                               np.array(labels, dtype=np.int32),
                                                                                                self.scale, self.size)
 
                 # predict 出来的feature map 是 128 * 128， 所以 gt 需要取 /4 步长
@@ -201,7 +203,7 @@ class ICDARDataset(Dataset):
 
                 image = normalize_iamge(image)
 
-                return image_path.as_posix(), image, score_map, geo_map, training_mask, transcripts, rectangles, rois
+                return image_path.as_posix(), image, score_map, geo_map, training_mask, transcripts, rectangles, rois, labels
             else:
                 return self.__getitem__(torch.tensor(np.random.randint(0, len(self))))
         except Exception as e:

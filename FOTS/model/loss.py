@@ -112,13 +112,16 @@ class RecognitionLoss(nn.Module):
 
     def __init__(self):
         super(RecognitionLoss, self).__init__()
-        self.ctc_loss = CTCLoss(zero_infinity=True) # pred, pred_len, labels, labels_len
+        self.ctc_loss = CTCLoss(zero_infinity=True, reduction='none') # pred, pred_len, labels, labels_len
 
     def forward(self, *input):
-        gt, pred = input[0], input[1]
+        gt, pred, labels = input[0], input[1], input[2]
+        labels = labels.byte()
         loss = self.ctc_loss( torch.log_softmax(pred[0], dim=-1), gt[0].cpu(), pred[1].int(), gt[1].cpu())
-        if torch.isnan(loss):
-            raise RuntimeError()
+
+        loss = (loss * labels) / gt[1]
+        loss = loss.sum() / (labels.sum() + 1e-8)
+
         return loss
 
 
@@ -133,10 +136,11 @@ class FOTSLoss(nn.Module):
     def forward(self, y_true_cls, y_pred_cls,
                 y_true_geo, y_pred_geo,
                 y_true_recog, y_pred_recog,
-                training_mask):
+                training_mask,
+                labels):
 
         if self.mode == 'recognition':
-            recognition_loss = self.recogitionLoss(y_true_recog, y_pred_recog)
+            recognition_loss = self.recogitionLoss(y_true_recog, y_pred_recog, labels)
             reg_loss = torch.tensor([0.], device=recognition_loss.device)
             cls_loss = torch.tensor([0.], device=recognition_loss.device)
         elif self.mode == 'detection':
@@ -146,7 +150,7 @@ class FOTSLoss(nn.Module):
         elif self.mode == 'e2e':
             reg_loss, cls_loss = self.detectionLoss(y_true_cls, y_pred_cls, y_true_geo, y_pred_geo, training_mask)
             if y_true_recog:
-                recognition_loss = self.recogitionLoss(y_true_recog, y_pred_recog)
+                recognition_loss = self.recogitionLoss(y_true_recog, y_pred_recog, labels)
 
 
         #recognition_loss = recognition_loss.to(detection_loss.device)

@@ -690,7 +690,7 @@ def image_label(txt_root, image_list, img_name, index,
 
 
 def collate_fn(batch):
-    imagePaths, img, score_map, geo_map, training_mask, transcripts, boxes, rois= zip(*batch)
+    imagePaths, img, score_map, geo_map, training_mask, transcripts, boxes, rois, labels= zip(*batch)
 
     bs = len(score_map)
     images = []
@@ -724,8 +724,9 @@ def collate_fn(batch):
     lengths = []
     bboxs = []
     batched_rois = []
+    all_labels = []
 
-    for index, gt in enumerate(zip(transcripts, boxes, rois)):
+    for index, gt in enumerate(zip(transcripts, boxes, rois, labels)):
         for b in gt[1]:
             mapping.append(index)
             bboxs.append(b)
@@ -733,12 +734,14 @@ def collate_fn(batch):
             batched_rois.append([index] + r)
         texts.append(gt[0][0])
         lengths.extend(gt[0][1])
+        all_labels.extend(gt[3])
 
     mapping = torch.tensor(mapping, dtype=torch.uint8)
     texts = torch.cat(texts, dim=0)
     lengths = torch.tensor(lengths, dtype=torch.long)
     bboxs = torch.from_numpy(np.stack(bboxs))
     batched_rois = torch.from_numpy(np.stack(batched_rois))
+    all_labels = torch.tensor(all_labels, dtype=torch.bool)
 
     data = dict(image_names=imagePaths,
                 images=images.float(),
@@ -748,7 +751,8 @@ def collate_fn(batch):
                 transcripts=(texts, lengths),
                 bboxes=bboxs.float(),
                 mapping=mapping.int(),
-                rois=batched_rois.float())
+                rois=batched_rois.float(),
+                labels=all_labels)
     return data
 
 
