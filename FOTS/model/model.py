@@ -229,13 +229,23 @@ class FOTSModel(LightningModule):
         input_data = args[0]
         bboxes = input_data['bboxes']
         rois = input_data['rois']
+        labels = input_data['labels']
+
+        valid_transcripts = input_data['transcripts'][0][labels]
+        valid_length = input_data['transcripts'][1][labels]
+        valid_rois = rois[labels]
+
+        sampled_indices = torch.randperm(valid_transcripts.size(0))[:self.max_transcripts_pre_batch]
+
+        valid_transcripts = valid_transcripts[sampled_indices]
+        valid_length = valid_length[sampled_indices]
+        valid_rois = valid_rois[sampled_indices]
 
         output = self.forward(images=input_data['images'],
                               boxes=bboxes,
-                              rois=rois)
-        labels = input_data['labels']
-        y_true_recog = (input_data['transcripts'][0][:self.max_transcripts_pre_batch],
-                        input_data['transcripts'][1][:self.max_transcripts_pre_batch])
+                              rois=valid_rois)
+
+        y_true_recog = (valid_transcripts, valid_length)
 
         loss_dict = self.loss(y_true_cls=input_data['score_maps'],
                               y_pred_cls=output['score_maps'],
@@ -243,8 +253,7 @@ class FOTSModel(LightningModule):
                               y_pred_geo=output['geo_maps'],
                               y_true_recog=y_true_recog,
                               y_pred_recog=output['transcripts'],
-                              training_mask=input_data['training_masks'],
-                              labels=labels[:self.max_transcripts_pre_batch])
+                              training_mask=input_data['training_masks'])
 
         loss = loss_dict['reg_loss'] + loss_dict['cls_loss'] + loss_dict['recog_loss']
         self.log('loss', loss, logger=True)
