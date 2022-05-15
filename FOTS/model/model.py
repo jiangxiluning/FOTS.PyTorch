@@ -218,15 +218,24 @@ class FOTSModel(LightningModule):
         rois = input_data['rois']
         labels = input_data['labels']
 
-        valid_transcripts = input_data['transcripts'][0][labels]
-        valid_length = input_data['transcripts'][1][labels]
-        valid_rois = rois[labels]
 
-        sampled_indices = torch.randperm(valid_transcripts.size(0))[:self.max_transcripts_pre_batch]
+        if labels.sum() > 0:
+            valid_transcripts = input_data['transcripts'][0][labels]
+            valid_length = input_data['transcripts'][1][labels]
+            valid_rois = rois[labels]
 
-        valid_transcripts = valid_transcripts[sampled_indices]
-        valid_length = valid_length[sampled_indices]
-        valid_rois = valid_rois[sampled_indices]
+            sampled_indices = torch.randperm(valid_transcripts.size(0))[:self.max_transcripts_pre_batch]
+
+            valid_transcripts = valid_transcripts[sampled_indices]
+            valid_length = valid_length[sampled_indices]
+            valid_rois = valid_rois[sampled_indices]
+            labels = labels[labels == True][sampled_indices]
+        else:
+            valid_transcripts = input_data['transcripts'][0][labels][:self.max_transcripts_pre_batch]
+            valid_length = input_data['transcripts'][1][:self.max_transcripts_pre_batch]
+            valid_rois = rois[:self.max_transcripts_pre_batch]
+            labels = labels[:self.max_transcripts_pre_batch]
+
 
         output = self.forward(images=input_data['images'],
                               boxes=bboxes,
@@ -243,7 +252,8 @@ class FOTSModel(LightningModule):
                               y_pred_geo=output['geo_maps'],
                               y_true_recog=y_true_recog,
                               y_pred_recog=output['transcripts'],
-                              training_mask=input_data['training_masks'])
+                              training_mask=input_data['training_masks'],
+                              labels=labels)
 
         loss = loss_dict['reg_loss'] + loss_dict['cls_loss'] + loss_dict['recog_loss']
         self.log('loss', loss, logger=True)
