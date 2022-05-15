@@ -231,7 +231,7 @@ class FOTSModel(LightningModule):
             valid_rois = valid_rois[sampled_indices]
             labels = labels[labels == True][sampled_indices]
         else:
-            valid_transcripts = input_data['transcripts'][0][labels][:self.max_transcripts_pre_batch]
+            valid_transcripts = input_data['transcripts'][0][:self.max_transcripts_pre_batch]
             valid_length = input_data['transcripts'][1][:self.max_transcripts_pre_batch]
             valid_rois = rois[:self.max_transcripts_pre_batch]
             labels = labels[:self.max_transcripts_pre_batch]
@@ -241,10 +241,7 @@ class FOTSModel(LightningModule):
                               boxes=bboxes,
                               rois=valid_rois)
 
-        if valid_rois.size(0) == 0:
-            y_true_recog = None
-        else:
-            y_true_recog = (valid_transcripts, valid_length)
+        y_true_recog = (valid_transcripts, valid_length)
 
         loss_dict = self.loss(y_true_cls=input_data['score_maps'],
                               y_pred_cls=output['score_maps'],
