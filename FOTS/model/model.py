@@ -65,19 +65,11 @@ class FOTSModel(LightningModule):
         score_map, geo_map = self.detector(feature_map)
 
         if self.training:
-            if self.mode == 'detection':
+            if self.mode == 'detection' or rois.size(0) == 0:
                 data = dict(score_maps=score_map,
                             geo_maps=geo_map,
-                            transcripts=(None, None),
-                            bboxes=boxes,
-                            mapping=None,
-                            indices=None)
+                            transcripts=(None, None))
                 return data
-
-            # there are some hard samples, ###
-
-            # for memory concern, we fix the number of transcript to train
-            rois = rois[: self.max_transcripts_pre_batch]
 
             ratios = rois[:, 4] / rois[:, 3]
             maxratio = ratios.max().item()
@@ -88,17 +80,12 @@ class FOTSModel(LightningModule):
 
             lengths = torch.ceil(self.pooled_height * ratios)
 
-            pred_mapping = rois[:, 0]
-            pred_boxes = boxes
-
             preds = self.recognizer(roi_features, lengths.cpu())
             preds = preds.permute(1, 0, 2) # B, T, C -> T, B, C
 
             data = dict(score_maps=score_map,
                         geo_maps=geo_map,
-                        transcripts=(preds, lengths),
-                        bboxes=pred_boxes,
-                        mapping=pred_mapping)
+                        transcripts=(preds, lengths))
             return data
 
         else:
@@ -245,7 +232,10 @@ class FOTSModel(LightningModule):
                               boxes=bboxes,
                               rois=valid_rois)
 
-        y_true_recog = (valid_transcripts, valid_length)
+        if valid_rois.size(0) == 0:
+            y_true_recog = None
+        else:
+            y_true_recog = (valid_transcripts, valid_length)
 
         loss_dict = self.loss(y_true_cls=input_data['score_maps'],
                               y_pred_cls=output['score_maps'],

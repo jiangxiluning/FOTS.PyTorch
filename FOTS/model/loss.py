@@ -133,6 +133,9 @@ class FOTSLoss(nn.Module):
                 y_true_recog, y_pred_recog,
                 training_mask):
 
+        reg_loss = None
+        cls_loss = None
+        recognition_loss = None
         if self.mode == 'recognition':
             recognition_loss = self.recogitionLoss(y_true_recog, y_pred_recog)
             reg_loss = torch.tensor([0.], device=recognition_loss.device)
@@ -145,6 +148,8 @@ class FOTSLoss(nn.Module):
             reg_loss, cls_loss = self.detectionLoss(y_true_cls, y_pred_cls, y_true_geo, y_pred_geo, training_mask)
             if y_true_recog:
                 recognition_loss = self.recogitionLoss(y_true_recog, y_pred_recog)
+            else:
+                recognition_loss = torch.tensor([0.], device=cls_loss.device)
 
         #recognition_loss = recognition_loss.to(detection_loss.device)
         return dict(reg_loss=reg_loss, cls_loss=cls_loss, recog_loss=recognition_loss)
