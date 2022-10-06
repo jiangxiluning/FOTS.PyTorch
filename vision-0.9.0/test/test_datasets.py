@@ -774,7 +774,7 @@ class VOCSegmentationTestCase(datasets_utils.ImageDatasetTestCase):
         shutil.copytree(src, root / "Segmentation")
 
         num_images = max(itertools.chain(*idcs.values())) + 1
-        num_images_per_image_set = dict([(image_set, len(idcs_)) for image_set, idcs_ in idcs.items()])
+        num_images_per_image_set = {image_set: len(idcs_) for image_set, idcs_ in idcs.items()}
         return num_images, num_images_per_image_set
 
     def _create_image_set_file(self, root, image_set, idcs):
