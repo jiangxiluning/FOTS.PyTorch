@@ -21,21 +21,17 @@ import scipy.io as sio
 from torch.utils.data import Dataset
 import imgaug.augmentables.polys as ia_polys
 import imgaug.augmentables.segmaps as ia_segmaps
+from sklearn.model_selection import train_test_split
 
 from .transforms import Transform
 from .datautils import *
 from ..utils.util import str_label_converter, dump_results
-
 from . import utils as data_utils
 
 
-class SynthTextDataset(Dataset):
+class SynthTextDatasetFactory:
 
-    def __init__(self, data_root,
-                 scale: float = 0.25,
-                 size: int = 640,
-                 transform=None,
-                 vis=False):
+    def __init__(self, data_root, random_state=1024, val_size=0.2, test_size=0.0):
         self.dataRoot = pathlib.Path(data_root)
         if not self.dataRoot.exists():
             raise FileNotFoundError('Dataset folder is not exist.')
@@ -43,14 +39,66 @@ class SynthTextDataset(Dataset):
         self.targetFilePath = self.dataRoot / 'gt.mat'
         if not self.targetFilePath.exists():
             raise FileExistsError('Target file is not exist.')
-        targets = {}
-        sio.loadmat(self.targetFilePath, targets, squeeze_me=True, struct_as_record=False,
+        self.targets = {}
+        sio.loadmat(self.targetFilePath.as_posix(), self.targets, squeeze_me=True, struct_as_record=False,
                     variable_names=['imnames', 'wordBB', 'txt'])
 
+        self.image_folder = self.dataRoot / 'imgs'
+
+        assert val_size + test_size < 1
+        assert val_size >= 0.0
+        assert test_size >= 0.0
+        samples = list(range(len(self.targets['imnames'])))
+
+        if test_size:
+            trainval, self.test = train_test_split(samples, test_size=test_size, random_state=random_state, shuffle=True)
+        else:
+            trainval = samples
+            self.test = None
+
+        if val_size:
+            self.train, self.val = train_test_split(trainval, test_size=val_size, random_state=random_state, shuffle=True)
+        else:
+            self.train = samples
+            self.val = None
+
+    def train_ds(self, scale, size, transform, vis):
+        return SynthTextDataset(self.targets, self.image_folder,
+                                indices=self.train, scale=scale, size=size, transform=transform, vis=vis)
+
+    def val_ds(self, scale, size, transform, vis):
+        if not self.val:
+            return None
+        return SynthTextDataset(self.targets,
+                                self.image_folder,
+                                indices=self.val, scale=scale, size=size, transform=transform, vis=vis)
+
+    def test_ds(self, scale, size, transform, vis):
+        if not self.test:
+            return None
+        return SynthTextDataset(self.targets,
+                                self.image_folder,
+                                indices=self.test, scale=scale, size=size, transform=transform, vis=vis)
+
+
+
+class SynthTextDataset(Dataset):
+
+    def __init__(self, targets,
+                 image_folder,
+                 indices,
+                 scale: float = 0.25,
+                 size: int = 640,
+                 transform=None,
+                 vis=False):
+
+        self.targets = targets
+        self.indices = indices
         self.imageNames = targets['imnames']
         self.wordBBoxes = targets['wordBB']
         self.transcripts = targets['txt']
         self.transform: Transform = transform
+        self.image_folder = image_folder
 
         self.vis = vis
         self.scale = scale
@@ -123,10 +171,11 @@ class SynthTextDataset(Dataset):
             transcript: corresponding transcripts of bounded words
         """
         try:
-            image_path = self.imageNames[index]
-            word_b_boxes = self.wordBBoxes[index] # 2 * 4 * num_words
-            transcripts = self.transcripts[index]
-            image_path = (self.dataRoot / 'imgs' / image_path).absolute()
+            sample = self.indices[index]
+            image_path = self.imageNames[sample]
+            word_b_boxes = self.wordBBoxes[sample] # 2 * 4 * num_words
+            transcripts = self.transcripts[sample]
+            image_path = (self.image_folder / image_path).absolute()
             im = cv2.imread(image_path.as_posix())
 
             word_b_boxes = np.expand_dims(word_b_boxes, axis=2) if (word_b_boxes.ndim == 2) else word_b_boxes
@@ -199,4 +248,4 @@ class SynthTextDataset(Dataset):
             return self.__getitem__(np.random.randint(0, len(self)))
 
     def __len__(self):
-        return len(self.imageNames)
+        return len(self.indices)

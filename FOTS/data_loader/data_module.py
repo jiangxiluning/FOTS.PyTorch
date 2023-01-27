@@ -20,7 +20,7 @@ from easydict import EasyDict
 from pytorch_lightning.core import LightningDataModule
 from torch.utils.data import DataLoader
 
-from .synthtext_dataset import SynthTextDataset
+from .synthtext_dataset import SynthTextDataset, SynthTextDatasetFactory
 from .icdar_dataset import ICDARDataset
 from .transforms import Transform
 from .datautils import collate_fn
@@ -35,20 +35,20 @@ class SynthTextDataModule(LightningDataModule):
     def setup(self, stage: Optional[str] = None):
         transform = Transform(is_training=True, output_size=(self.config.data_loader.size,
                                                              self.config.data_loader.size))
-        self.train_ds = SynthTextDataset(data_root=self.config.data_loader.data_dir,
-                                         transform=transform,
+
+        factory = SynthTextDatasetFactory(data_root=self.config.data_loader.data_dir, val_size=0.2, test_size=0.0)
+        self.train_ds = factory.train_ds(transform=transform,
                                          vis=False,
                                          size=self.config.data_loader.size,
                                          scale=self.config.data_loader.scale)
 
+        transform = Transform(is_training=False, output_size=(self.config.data_loader.size,
+                                                             self.config.data_loader.size))
+        self.val_ds = factory.val_ds(transform=transform,
+                                     vis=False,
+                                     size=self.config.data_loader.size,
+                                     scale=self.config.data_loader.scale)
 
-        # transform = Transform(is_training=False, output_size=(self.config.data_loader.size,
-        #                                                      self.config.data_loader.size))
-        # self.val_ds = SynthTextDataset(data_root=self.config.data_loader.data_dir,
-        #                                  transform=transform,
-        #                                  vis=False,
-        #                                  size=self.config.data_loader.size,
-        #                                  scale=self.config.data_loader.scale)
 
     def train_dataloader(self) -> Any:
         return DataLoader(dataset=self.train_ds,
@@ -58,13 +58,13 @@ class SynthTextDataModule(LightningDataModule):
                           shuffle=self.config.data_loader.shuffle,
                           pin_memory=False)
 
-    # def val_dataloader(self) -> Union[DataLoader, List[DataLoader]]:
-    #     return DataLoader(dataset=self.val_ds,
-    #                       batch_size=self.config.data_loader.batch_size,
-    #                       num_workers=self.config.data_loader.workers,
-    #                       collate_fn=collate_fn,
-    #                       shuffle=False,
-    #                       pin_memory=False)
+    def val_dataloader(self) -> Union[DataLoader, List[DataLoader]]:
+        return DataLoader(dataset=self.val_ds,
+                          batch_size=self.config.data_loader.batch_size,
+                          num_workers=self.config.data_loader.workers,
+                          collate_fn=collate_fn,
+                          shuffle=False,
+                          pin_memory=False)
 
 
 class ICDARDataModule(LightningDataModule):

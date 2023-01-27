@@ -8,6 +8,7 @@ import torch
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 from pytorch_lightning.core import LightningModule
+from loguru import logger
 
 from ..base import BaseModel
 from .modules import shared_conv
@@ -25,6 +26,7 @@ class FOTSModel(LightningModule):
         self.config = config
 
         self.mode = config['model']['mode']
+        self.freeze_det = config.get('freeze_det', False)
 
         bbNet = torch.hub.load(self.config.backbone_weights, 'resnet50', pretrained=True, source='local')
         self.sharedConv = shared_conv.SharedConv(bbNet, config)
@@ -33,9 +35,21 @@ class FOTSModel(LightningModule):
         nclass = len(keys) + 2
         self.recognizer = Recognizer(nclass, config)
         self.detector = Detector(config)
+
+        if self.freeze_det:
+            logger.warning('The backbone and detection head are frozen. To disable it '
+                           'set freeze_det to False in your configuration file.')
+            for param in self.sharedConv.parameters():
+                param.requires_grad = False
+
+            for param in self.detector.parameters():
+                param.requires_grad = False
+
         #self.roirotate = ROIRotate()
         self.roirotate = RRoiAlignFunction()
         self.pooled_height = 8
+        self.max_width = config.model.recognizer.max_width
+        
         self.spatial_scale = config.data_loader.scale
 
         self.max_transcripts_pre_batch = self.config.data_loader.max_transcripts_pre_batch
@@ -59,12 +73,12 @@ class FOTSModel(LightningModule):
                 raise NotImplementedError()
             return dict(optimizer=optimizer, lr_scheduler=lr_scheduler)
 
-    def forward(self, images, boxes=None, rois=None, s=None, g=None):
+    def forward(self, images, boxes=None, rois=None, s=None, g=None, ):
         feature_map = self.sharedConv.forward(images)
 
         score_map, geo_map = self.detector(feature_map)
 
-        if self.training:
+        if rois is not None:
             if self.mode == 'detection' or rois.size(0) == 0:
                 data = dict(score_maps=score_map,
                             geo_maps=geo_map,
@@ -74,14 +88,35 @@ class FOTSModel(LightningModule):
             ratios = rois[:, 4] / rois[:, 3]
             maxratio = ratios.max().item()
             pooled_width = np.ceil(self.pooled_height * maxratio).astype(int)
-
-            roi_features = self.roirotate.apply(feature_map, rois, self.pooled_height, pooled_width, self.spatial_scale)
-            # self.debug_rois(images, rois, self.pooled_height, pooled_width, 1.0)
-
-            lengths = torch.ceil(self.pooled_height * ratios)
-
-            preds = self.recognizer(roi_features, lengths.cpu())
-            preds = preds.permute(1, 0, 2) # B, T, C -> T, B, C
+            if pooled_width >= self.max_width:
+                ratios = (self.max_width / pooled_width) * ratios
+                pooled_width = self.max_width
+                
+                
+            segs = rois.shape[0] // self.max_transcripts_pre_batch
+            if segs == 0:
+                segs = 1 # at least 1 seg
+            
+            split_rois = torch.tensor_split(rois, segs)
+            split_ratios = torch.tensor_split(ratios, segs)
+            
+            split_preds = []
+            split_length = []
+            for _rois, _ratios in zip(split_rois, split_ratios):
+                roi_features = self.roirotate.apply(feature_map, _rois, self.pooled_height, pooled_width, self.spatial_scale)
+                # self.debug_rois(images, rois, self.pooled_height, pooled_width, 1.0)
+                lengths = torch.ceil(self.pooled_height * _ratios).int()
+                preds = self.recognizer(roi_features, lengths.cpu())
+                preds = preds.permute(1, 0, 2) # B, T, C -> T, B, C
+                
+                split_preds.append(preds)
+                split_length.append(lengths)
+                # del roi_features
+                # torch.cuda.empty_cache()
+                
+                
+            preds = torch.cat(split_preds, dim=1)
+            lengths = torch.cat(split_length)
 
             data = dict(score_maps=score_map,
                         geo_maps=geo_map,
@@ -224,17 +259,23 @@ class FOTSModel(LightningModule):
             valid_length = input_data['transcripts'][1][labels]
             valid_rois = rois[labels]
 
-            sampled_indices = torch.randperm(valid_transcripts.size(0))[:self.max_transcripts_pre_batch]
+            # sampled_indices = torch.randperm(valid_transcripts.size(0))[:self.max_transcripts_pre_batch]
 
-            valid_transcripts = valid_transcripts[sampled_indices]
-            valid_length = valid_length[sampled_indices]
-            valid_rois = valid_rois[sampled_indices]
-            labels = labels[labels == True][sampled_indices]
+            # valid_transcripts = valid_transcripts[sampled_indices]
+            # valid_length = valid_length[sampled_indices]
+            # valid_rois = valid_rois[sampled_indices]
+            # labels = labels[labels == True][sampled_indices]
+            labels = labels[labels == True]
         else:
-            valid_transcripts = input_data['transcripts'][0][:self.max_transcripts_pre_batch]
-            valid_length = input_data['transcripts'][1][:self.max_transcripts_pre_batch]
-            valid_rois = rois[:self.max_transcripts_pre_batch]
-            labels = labels[:self.max_transcripts_pre_batch]
+            # valid_transcripts = input_data['transcripts'][0][:self.max_transcripts_pre_batch]
+            # valid_length = input_data['transcripts'][1][:self.max_transcripts_pre_batch]
+            # valid_rois = rois[:self.max_transcripts_pre_batch]
+            # labels = labels[:self.max_transcripts_pre_batch]
+            
+            valid_transcripts = input_data['transcripts'][0]
+            valid_length = input_data['transcripts'][1]
+            
+            
 
 
         output = self.forward(images=input_data['images'],
@@ -253,41 +294,74 @@ class FOTSModel(LightningModule):
                               labels=labels)
 
         loss = loss_dict['reg_loss'] + loss_dict['cls_loss'] + loss_dict['recog_loss']
-        self.log('loss', loss, logger=True)
-        self.log('reg_loss', loss_dict['reg_loss'], logger=True, prog_bar=True)
-        self.log('cls_loss', loss_dict['cls_loss'], logger=True, prog_bar=True)
-        self.log('recog_loss', loss_dict['recog_loss'], logger=True, prog_bar=True)
+        self.log('loss', loss, on_step=True, logger=True, on_epoch=True, prog_bar=True)
+        self.log('reg_loss', loss_dict['reg_loss'], on_step=True, on_epoch=True, logger=True, prog_bar=True)
+        self.log('cls_loss', loss_dict['cls_loss'], on_step=True, on_epoch=True, logger=True, prog_bar=True)
+        self.log('recog_loss', loss_dict['recog_loss'], on_step=True, on_epoch=True, logger=True, prog_bar=True)
 
         return loss
 
     def validation_step(self, *args, **kwargs):
         input_data = args[0]
-        output = self.forward(images=input_data['images'])
-        output['images_names'] = input_data['image_names']
-        return output
+        bboxes = input_data['bboxes']
+        rois = input_data['rois']
+        labels = input_data['labels']
 
-    def validation_step_end(self, *args, **kwargs):
-        output: dict = args[0]
+        if labels.sum() > 0:
+            valid_transcripts = input_data['transcripts'][0][labels]
+            valid_length = input_data['transcripts'][1][labels]
+            valid_rois = rois[labels]
 
-        boxes_list = []
-        transcripts_list = []
+            # sampled_indices = torch.randperm(valid_transcripts.size(0))[:self.max_transcripts_pre_batch]
 
-        pred_boxes = output['bboxes']
-        pred_mapping = output['mapping']
-        image_names = output['images_names']
+            # valid_transcripts = valid_transcripts[sampled_indices]
+            # valid_length = valid_length[sampled_indices]
+            # valid_rois = valid_rois[sampled_indices]
+            # labels = labels[labels == True][sampled_indices]
+            labels = labels[labels == True]
+        else:
+            # valid_transcripts = input_data['transcripts'][0][:self.max_transcripts_pre_batch]
+            # valid_length = input_data['transcripts'][1][:self.max_transcripts_pre_batch]
+            # valid_rois = rois[:self.max_transcripts_pre_batch]
+            # labels = labels[:self.max_transcripts_pre_batch]
+            
+            valid_transcripts = input_data['transcripts'][0]
+            valid_length = input_data['transcripts'][1]
 
-        self.log('pred_boxes', pred_boxes.shape[0] if pred_boxes is not None else 0, prog_bar=True)
+        output = self.forward(images=input_data['images'],
+                              boxes=bboxes,
+                              rois=valid_rois)
 
-        if pred_boxes is None:
-            return dict(image_names=image_names, boxes_list=boxes_list, transcripts_list=transcripts_list)
+        y_true_recog = (valid_transcripts, valid_length)
+
+        loss_dict = self.loss(y_true_cls=input_data['score_maps'],
+                              y_pred_cls=output['score_maps'],
+                              y_true_geo=input_data['geo_maps'],
+                              y_pred_geo=output['geo_maps'],
+                              y_true_recog=y_true_recog,
+                              y_pred_recog=output['transcripts'],
+                              training_mask=input_data['training_masks'],
+                              labels=labels)
+
+        loss = loss_dict['reg_loss'] + loss_dict['cls_loss'] + loss_dict['recog_loss']
+        self.log('val_loss', loss, on_step=True, logger=True, on_epoch=True, prog_bar=True)
+        self.log('val_reg_loss', loss_dict['reg_loss'], on_step=True, on_epoch=True, logger=True, prog_bar=True)
+        self.log('val_cls_loss', loss_dict['cls_loss'], on_step=True, on_epoch=True, logger=True, prog_bar=True)
+        self.log('val_recog_loss', loss_dict['recog_loss'], on_step=True, on_epoch=True, logger=True, prog_bar=True)
+
+        return loss_dict
 
 class Recognizer(BaseModel):
 
     def __init__(self, nclass, config):
         super().__init__(config)
-        self.crnn = CRNN(8, 32, nclass, 256)
+        try:
+            self.crnn = CRNN(8, 32, nclass, 256, dropout=self.config.model.recognizer.dropout)
+        except KeyError:
+            self.logger.warning("Dropout key is missing. Use 0.0 by default.")
+            self.crnn = CRNN(8, 32, nclass, 256, dropout=0.0)
 
-    def forward(self, rois, lengths):
+    def forward(self, rois, lengths):        
         return self.crnn(rois, lengths)
 
 

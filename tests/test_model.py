@@ -15,7 +15,7 @@ from FOTS.data_loader.transforms import Transform
 from FOTS.model.modules.roi_rotate import ROIRotate
 from FOTS.utils.util import show_box
 from FOTS.data_loader.icdar_dataset import ICDARDataset
-from FOTS.data_loader.synthtext_dataset import SynthTextDataset
+from FOTS.data_loader.synthtext_dataset import SynthTextDataset, SynthTextDatasetFactory
 from FOTS.data_loader.datautils import collate_fn
 from FOTS.rroi_align.modules.rroi_align import _RRoiAlign
 from FOTS.utils.detect import get_boxes
@@ -218,13 +218,13 @@ def test_affine():
 
 def test_synthtext_dataset():
 
+    factory = SynthTextDatasetFactory(data_root="/home/luning/dev/data/SynthText800k/detection/")
     transform = Transform(is_training=True)
-    ds = SynthTextDataset(data_root='/home/luning/dev/data/SynthText800k/detection/',
-                          transform=transform,
-                          vis=True)
-
-    print(ds[0])
-
+    train_ds = factory.train_ds(scale=0.25, size=640, transform=transform, vis=False)
+    print(train_ds[0])
+    transform = Transform(is_training=False)
+    val_ds = factory.val_ds(scale=0.25, size=640, transform=transform, vis=False)
+    print(val_ds[0])
 
 def test_icdar_dataset():
 

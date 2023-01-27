@@ -7,6 +7,7 @@ import pathlib
 from pytorch_lightning.trainer import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.plugins import DDPPlugin
 from easydict import EasyDict
 
 from FOTS.model.model import FOTSModel
@@ -37,7 +38,25 @@ def main(config, resume: bool):
     data_module.setup()
 
     root_dir = str(pathlib.Path(config.trainer.save_dir).absolute() / config.name)
-    checkpoint_callback = ModelCheckpoint(dirpath=root_dir + '/checkpoints', every_n_train_steps=config.trainer.every_n_train_steps)
+    
+    
+    every_n_train_steps = config.trainer.get('every_n_train_steps', None)
+    every_n_epochs = config.trainer.get('every_n_epochs', None)
+    
+    if (every_n_train_steps is None) and (every_n_epochs is None):
+        logger.warning('None of checkpoint stratedge is set. Use 1 for every_n_epochs.')
+        every_n_epochs = 1
+        
+    save_top_k = config.trainer.get('save_top_k', 1)
+    
+    
+    checkpoint_callback = ModelCheckpoint(dirpath=root_dir + '/checkpoints', 
+                                          monitor=config.trainer.monitor,
+                                          mode=config.trainer.monitor_mode,
+                                          save_top_k=save_top_k,
+                                          every_n_train_steps=every_n_train_steps,
+                                          every_n_val_epochs=every_n_epochs
+                                          )
     wandb_dir = pathlib.Path(root_dir) / 'wandb'
     if not wandb_dir.exists():
         wandb_dir.mkdir(parents=True, exist_ok=True)
@@ -49,6 +68,11 @@ def main(config, resume: bool):
         gpus = 0
     else:
         gpus = config.gpus
+        
+    if config.model.mode == 'detection':
+        find_unused_parameters = True
+    else:
+        find_unused_parameters = False
 
     trainer = Trainer(
         logger=wandb_logger,
@@ -67,7 +91,8 @@ def main(config, resume: bool):
         terminate_on_nan=config.trainer.terminate_on_nan,
         fast_dev_run=config.trainer.fast_dev_run,
         check_val_every_n_epoch=config.trainer.check_val_every_n_epoch,
-        resume_from_checkpoint=resume_ckpt)
+        resume_from_checkpoint=resume_ckpt,
+        plugins=DDPPlugin(find_unused_parameters=find_unused_parameters))
     trainer.fit(model=model, datamodule=data_module)
 
 

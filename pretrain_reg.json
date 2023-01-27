@@ -1,0 +1,62 @@
+{
+    "name": "pretrain_reg_freeze_det",
+    "cuda": true,
+    "gpus": [0, 1],
+    "precision": 32,
+    "backbone_weights": "./vision-0.9.0",
+    "pretrain": "/home/luning/dev/projects/FOTS.PyTorch/saved/pretrain_reg_freeze_det/checkpoints/epoch=0-step=9999.ckpt",
+    "freeze_det": true,
+    "data_loader": {
+        "dataset":"synth800k",
+        "data_dir": "/home/luning/dev/data/SynthText800k/detection/",
+        "batch_size": 4,
+        "shuffle": true,
+        "workers": 4,
+        "max_transcripts_pre_batch": 10,
+        "size": 640,
+        "scale": 0.25
+    },
+    "validation": {
+
+        "scales": [800, 1000, 1333]
+    },
+    "lr_scheduler": {
+        "name": "",
+        "args":
+        {
+            "gamma": 0.1,
+            "step_size": 10
+        }
+
+    },
+ 
+    "optimizer_type": "AdamW",
+    "optimizer": {
+        "lr": 0.0001
+    },
+    "loss": "FOTSLoss",
+    "metrics": ["fots_metric"],
+    "trainer": {
+        "epochs": 6,
+        "save_dir": "saved/",
+        "save_freq": 1,
+        "verbosity": 2,
+        "monitor": "hmean",
+        "monitor_mode": "max",
+        "log_every_n_steps": 1,
+        "log_gpu_memory": "all",
+        "overfit_batches": 0.0,
+        "terminate_on_nan": false,
+        "fast_dev_run": false,
+        "check_val_every_n_epoch": 1,
+        "every_n_train_steps": 10000
+    },
+    "arch": "FOTSModel",
+    "model": {
+        "mode": "e2e",
+        "recognizer": {
+            "dropout": 0.2,
+            "max_width": 80
+        }
+    }
+}
