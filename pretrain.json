@@ -1,14 +1,14 @@
 {
-    "name": "pretrain",
+    "name": "pretrain_det",
     "cuda": true,
-    "gpus": [0],
+    "gpus": [0, 1],
     "precision": 32,
     "backbone_weights": "./vision-0.9.0",
-    "pretrain": "/home/luning/dev/projects/FOTS.PyTorch/saved/pretrain/checkpoints/epoch=1-step=199999.ckpt",
+    "pretrain": "",
     "data_loader": {
         "dataset":"synth800k",
         "data_dir": "/home/luning/dev/data/SynthText800k/detection/",
-        "batch_size": 4,
+        "batch_size": 8,
         "shuffle": true,
         "workers": 1,
         "max_transcripts_pre_batch": 16,
@@ -36,7 +36,7 @@
     "loss": "FOTSLoss",
     "metrics": ["fots_metric"],
     "trainer": {
-        "epochs": 10,
+        "epochs": 4,
         "save_dir": "saved/",
         "save_freq": 1,
         "verbosity": 2,
@@ -52,6 +52,6 @@
     },
     "arch": "FOTSModel",
     "model": {
-        "mode": "e2e"
+        "mode": "detection"
     }
 }

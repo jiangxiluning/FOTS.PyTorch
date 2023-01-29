@@ -274,8 +274,7 @@ class FOTSModel(LightningModule):
             
             valid_transcripts = input_data['transcripts'][0]
             valid_length = input_data['transcripts'][1]
-            
-            
+            valid_rois = rois
 
 
         output = self.forward(images=input_data['images'],
@@ -327,6 +326,7 @@ class FOTSModel(LightningModule):
             
             valid_transcripts = input_data['transcripts'][0]
             valid_length = input_data['transcripts'][1]
+            valid_rois = rois
 
         output = self.forward(images=input_data['images'],
                               boxes=bboxes,

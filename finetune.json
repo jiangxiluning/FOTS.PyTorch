@@ -1,10 +1,11 @@
 {
-    "name": "finetune_e2e",
+    "name": "finetune_e2e_ghmc",
     "cuda": true,
     "gpus": 2,
     "precision": 32,
     "backbone_weights": "./vision-0.9.0",
-    "pretrain": "/home/luning/dev/projects/FOTS.PyTorch/saved/finetune_e2e/checkpoints/epoch=503-step=62999.ckpt",
+    "pretrain": "/home/luning/dev/projects/FOTS.PyTorch/saved/finetune_det/checkpoints/epoch=154-step=18999.ckpt",
+    "freeze_det": false,
     "data_loader": {
         "dataset":"icdar2015",
         "data_dir": "/data/ocr/det/icdar2015/detection",
@@ -29,16 +30,16 @@
 
     },
  
-    "optimizer_type": "AdamW",
+    "optimizer_type": "Adam",
     "optimizer": {
         "lr": 0.0001
     },
     "loss": "FOTSLoss",
     "metrics": ["fots_metric"],
     "trainer": {
-        "epochs": 5000,
+        "epochs": 300,
         "save_dir": "saved/",
-        "save_freq": 200,
+        "save_freq": 50,
         "verbosity": 2,
         "monitor": "hmean",
         "monitor_mode": "max",
