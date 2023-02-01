@@ -1,10 +1,10 @@
 {
-    "name": "pretrain_det",
+    "name": "pretrain_det_nb",
     "cuda": true,
     "gpus": [0, 1],
     "precision": 32,
     "backbone_weights": "./vision-0.9.0",
-    "pretrain": "/home/luning/dev/projects/FOTS.PyTorch/saved/pretrain_det/checkpoints/epoch=0-step=9999.ckpt",
+    "pretrain": "",
     "data_loader": {
         "dataset":"synth800k",
         "data_dir": "/home/luning/dev/data/SynthText800k/detection/",
@@ -40,8 +40,8 @@
         "save_dir": "saved/",
         "save_freq": 1,
         "verbosity": 2,
-        "monitor": "hmean",
-        "monitor_mode": "max",
+        "monitor": "val_loss",
+        "monitor_mode": "min",
         "log_every_n_steps": 1,
         "log_gpu_memory": "all",
         "overfit_batches": 0.0,
@@ -52,6 +52,10 @@
     },
     "arch": "FOTSModel",
     "model": {
-        "mode": "detection"
+        "mode": "detection",
+        "recognizer": {
+            "dropout": 0.2,
+            "max_width": 80
+        }
     }
 }

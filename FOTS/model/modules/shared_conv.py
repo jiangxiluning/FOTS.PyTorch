@@ -22,43 +22,20 @@ class SharedConv(BaseModel):
         # Feature-merging branch
         # self.toplayer = nn.Conv2d(2048, 256, kernel_size = 1, stride = 1, padding = 0)  # Reduce channels
 
-        self.mergeLayers0 = DummyLayer()
+        self.mergeLayers1 = HLayer(2048, 1024)
+        self.mergeLayers2 = HLayer(1024, 512)
+        self.mergeLayers3 = HLayer(512, 256)
 
-        self.mergeLayers1 = HLayer(2048 + 1024, 128)
-        self.mergeLayers2 = HLayer(128 + 512, 64)
-        self.mergeLayers3 = HLayer(64 + 256, 32)
-
-        self.mergeLayers4 = nn.Conv2d(32, 32, kernel_size = 3, padding = 1)
-        self.bn5 = nn.BatchNorm2d(32, momentum=0.003)
+        # self.conv = nn.Conv2d(32, 32, kernel_size = 3, padding = 1)
+        # self.bn5 = nn.BatchNorm2d(32)
 
     def forward(self, input):
         # bottom up
 
         f = self.__foward_backbone(input)
-
-        g = [None] * 4
-        h = [None] * 4
-
-        # i = 1
-        h[0] = self.mergeLayers0(f[0])
-        g[0] = self.__unpool(h[0])
-
-        # i = 2
-        h[1] = self.mergeLayers1(g[0], f[1])
-        g[1] = self.__unpool(h[1])
-
-        # i = 3
-        h[2] = self.mergeLayers2(g[1], f[2])
-        g[2] = self.__unpool(h[2])
-
-        # i = 4
-        h[3] = self.mergeLayers3(g[2], f[3])
-        #g[3] = self.__unpool(h[3])
-
-        # final stage
-        final = self.mergeLayers4(h[3])
-        final = self.bn5(final)
-        final = F.relu(final)
+        output = self.mergeLayers1(f['conv5'], f['conv4'])
+        output = self.mergeLayers2(output, f['conv3'])
+        final = self.mergeLayers3(output, f['conv2'])
 
         # score = self.scoreMap(final)
         # score = torch.sigmoid(score)
@@ -93,8 +70,11 @@ class SharedConv(BaseModel):
             elif name == 'layer4':
                 output = input
                 break
-
-        return output, conv4, conv3, conv2
+            
+        return {'conv5': output,
+                'conv4': conv4,
+                'conv3': conv3,
+                'conv2': conv2}
 
     def __unpool(self, input):
         _, _, H, W = input.shape
@@ -131,21 +111,10 @@ class HLayer(nn.Module):
         :param outputChannels:
         """
         super(HLayer, self).__init__()
-
         self.conv2dOne = nn.Conv2d(inputChannels, outputChannels, kernel_size = 1)
-        self.bnOne = nn.BatchNorm2d(outputChannels, momentum=0.003)
-
-        self.conv2dTwo = nn.Conv2d(outputChannels, outputChannels, kernel_size = 3, padding = 1)
-        self.bnTwo = nn.BatchNorm2d(outputChannels, momentum=0.003)
+        
 
     def forward(self, inputPrevG, inputF):
-        input = torch.cat([inputPrevG, inputF], dim = 1)
-        output = self.conv2dOne(input)
-        output = self.bnOne(output)
-        output = F.relu(output)
-
-        output = self.conv2dTwo(output)
-        output = self.bnTwo(output)
-        output = F.relu(output)
-
-        return output
+        inputPrevG = self.conv2dOne(inputPrevG)
+        inputPrevG = F.interpolate(inputPrevG, mode = 'bilinear', scale_factor = 2, align_corners = True)
+        return inputPrevG + inputF

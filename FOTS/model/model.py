@@ -344,10 +344,10 @@ class FOTSModel(LightningModule):
                               labels=labels)
 
         loss = loss_dict['reg_loss'] + loss_dict['cls_loss'] + loss_dict['recog_loss']
-        self.log('val_loss', loss, on_step=True, logger=True, on_epoch=True, prog_bar=True)
-        self.log('val_reg_loss', loss_dict['reg_loss'], on_step=True, on_epoch=True, logger=True, prog_bar=True)
-        self.log('val_cls_loss', loss_dict['cls_loss'], on_step=True, on_epoch=True, logger=True, prog_bar=True)
-        self.log('val_recog_loss', loss_dict['recog_loss'], on_step=True, on_epoch=True, logger=True, prog_bar=True)
+        self.log('val_loss', loss, logger=True, on_epoch=True, prog_bar=True)
+        self.log('val_reg_loss', loss_dict['reg_loss'], on_epoch=True, logger=True, prog_bar=True)
+        self.log('val_cls_loss', loss_dict['cls_loss'], on_epoch=True, logger=True, prog_bar=True)
+        self.log('val_recog_loss', loss_dict['recog_loss'], on_epoch=True, logger=True, prog_bar=True)
 
         return loss_dict
 
@@ -356,10 +356,10 @@ class Recognizer(BaseModel):
     def __init__(self, nclass, config):
         super().__init__(config)
         try:
-            self.crnn = CRNN(8, 32, nclass, 256, dropout=self.config.model.recognizer.dropout)
+            self.crnn = CRNN(8, 256, nclass, 256, dropout=self.config.model.recognizer.dropout)
         except KeyError:
             self.logger.warning("Dropout key is missing. Use 0.0 by default.")
-            self.crnn = CRNN(8, 32, nclass, 256, dropout=0.0)
+            self.crnn = CRNN(8, 256, nclass, 256, dropout=0.0)
 
     def forward(self, rois, lengths):        
         return self.crnn(rois, lengths)
@@ -369,23 +369,22 @@ class Detector(BaseModel):
 
     def __init__(self, config):
         super().__init__(config)
-        self.scoreMap = nn.Conv2d(32, 1, kernel_size=1)
-        self.geoMap = nn.Conv2d(32, 4, kernel_size=1)
-        self.angleMap = nn.Conv2d(32, 1, kernel_size=1)
+        # self.scoreMap = nn.Conv2d(32, 1, kernel_size=1)
+        # self.geoMap = nn.Conv2d(32, 4, kernel_size=1)
+        # self.angleMap = nn.Conv2d(32, 1, kernel_size=1)
+        
+        self.predict = nn.Conv2d(256, 6, kernel_size=1)
         self.size = config.data_loader.size
 
     def forward(self, *input):
         final,  = input
+        final = self.predict(final)
+        final = torch.sigmoid(final)
 
-        score = self.scoreMap(final)
-        score = torch.sigmoid(score)
-
-        geoMap = self.geoMap(final)
+        score = final[:,0:1,...]
         # 出来的是 normalise 到 0 -1 的值是到上下左右的距离，但是图像他都缩放到  640 * 640 了，但是 gt 里是算的绝对数值来的
-        geoMap = torch.sigmoid(geoMap) * self.size  # TODO: 640 is the image size
-
-        angleMap = self.angleMap(final)
-        angleMap = (torch.sigmoid(angleMap) - 0.5) * math.pi / 2 # -pi/2  pi/2
+        geoMap = final[:,1:5,...] * self.size  # TODO: 640 is the image size
+        angleMap = (final[:,5:,...] - 0.5) * math.pi / 2 # -pi/2  pi/2
 
         geometry = torch.cat([geoMap, angleMap], dim=1)
 

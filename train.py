@@ -69,10 +69,12 @@ def main(config, resume: bool):
     else:
         gpus = config.gpus
         
-    if config.model.mode == 'detection':
-        find_unused_parameters = True
-    else:
-        find_unused_parameters = False
+    # if config.model.mode == 'detection':
+    #     find_unused_parameters = True
+    # else:
+    #     find_unused_parameters = False
+        
+    find_unused_parameters = True
 
     trainer = Trainer(
         logger=wandb_logger,
