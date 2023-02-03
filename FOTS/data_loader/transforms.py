@@ -49,7 +49,7 @@ class Transform:
             resize_height = iaa.Resize(size=dict(height=self.height_ratios,
                                                  width='keep'))
             crop = iaa.CropToFixedSize(width=self.cropped_size[0], height=self.cropped_size[1])
-            fix_resize = iaa.Resize(size=self.output_size)
+            fix_resize = iaa.Resize({"height": self.output_size[1], "width": self.output_size[0]})
 
 
             # blur = iaa.GaussianBlur()
@@ -79,7 +79,7 @@ class Transform:
                     hue]
             ia = iaa.Sequential(augs)
         else:
-            fix_resize = iaa.Resize(size=self.output_size)
+            fix_resize = iaa.Resize({"height": self.output_size[1], "width": self.output_size[0]})
             ia = iaa.Sequential([fix_resize])
 
         image = args[0]

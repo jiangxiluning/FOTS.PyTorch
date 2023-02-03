@@ -1,19 +1,17 @@
-# News!!! Recognition branch now is added into model. The whole project has beed optimized and refactored.
+# Introduction
+
+This is a PyTorch implementation of [FOTS](https://arxiv.org/abs/1801.01671).
+
  - [x] ICDAR Dataset 
  - [x] SynthText 800K Dataset
- - [x] detection branch (verified on the training set, It works!)
- - [x] recognition branch (verified)
+ - [x] detection branch 
+ - [x] recognition branch
  - [x] eval
  - [x] multi-gpu training
  - [x] reasonable project structure
  - [x] wandb
  - [x] pytorch_lightning
-
- 
-
-# Introduction
-
-This is a PyTorch implementation of [FOTS](https://arxiv.org/abs/1801.01671).
+ - [x] eval with different scales
 
 # Instruction
 

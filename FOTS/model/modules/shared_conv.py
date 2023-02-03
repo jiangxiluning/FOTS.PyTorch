@@ -116,5 +116,6 @@ class HLayer(nn.Module):
 
     def forward(self, inputPrevG, inputF):
         inputPrevG = self.conv2dOne(inputPrevG)
-        inputPrevG = F.interpolate(inputPrevG, mode = 'bilinear', scale_factor = 2, align_corners = True)
+        h, w = inputF.shape[2], inputF.shape[3]
+        inputPrevG = F.interpolate(inputPrevG, mode = 'bilinear', size = (h, w), align_corners = True)
         return inputPrevG + inputF

@@ -88,7 +88,7 @@ class SynthTextDataset(Dataset):
                  image_folder,
                  indices,
                  scale: float = 0.25,
-                 size: int = 640,
+                 size: tuple = (640, 640),
                  transform=None,
                  vis=False):
 

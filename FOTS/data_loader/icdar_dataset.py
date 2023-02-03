@@ -35,7 +35,7 @@ class ICDARDataset(Dataset):
     def __init__(self, data_root,
                  transform: Transform = None,
                  scale: float = 0.25,
-                 size: int = 640,
+                 size: tuple = (640, 600),
                  vis: bool = False,
                  training: bool = True):
         data_root = pathlib.Path(data_root)

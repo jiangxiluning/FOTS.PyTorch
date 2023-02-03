@@ -7,6 +7,7 @@ import sys
 import zipfile
 from dataclasses import dataclass
 from typing import List
+import re
 
 import cv2
 import easydict
@@ -23,12 +24,13 @@ logging.basicConfig(level=logging.DEBUG, format='')
 DET_CMD = '{} scripts/detection/script.py -g=scripts/detection/gt.zip -s={}'
 E2E_CMD = '{} scripts/e2e/script.py -g=scripts/e2e/gt.zip -s={}'
 
+SIZE_PATTERN = r'^\d+ \d+$'
+
 @dataclass
 class Result:
     image_path: pathlib.Path
     boxes: List[List[int]]
     transcripts: List[str]
-    pred_size: tuple # (h, w)
 
 
 def calculate_metric(output_dir: pathlib.Path, detection_mode: bool = True):
@@ -58,6 +60,18 @@ def main(args: argparse.Namespace):
         raise ValueError('Test set directory is not specified.')
     if not args.input_dir.exists():
         raise FileExistsError('{} is not existed.'.format(args.input_dir.absolute().as_posix()))
+    
+    matched = re.match(SIZE_PATTERN, args.size)
+    if matched:
+        width, height = args.size.split()
+        width, height = int(width), int(height)
+        
+        if (width * height) == 0:
+            raise ValueError('Width or height must not be 0!')
+        
+    else:
+        ValueError('Please specify correct image size, e.g. "1280 720"')
+    
 
     with_gpu = True if torch.cuda.is_available() else False
     with_gpu = with_gpu & args.cuda
@@ -72,12 +86,19 @@ def main(args: argparse.Namespace):
     config = json.load(open(args.config))
     config = easydict.EasyDict(config)
 
-    if not with_gpu and config.model.mode == 'e2e':
-        raise ValueError('E2E mode does not support CPU mode.')
-
     config.data_loader.batch_size = args.bs
     config.data_loader.workers = args.workers
     config.data_loader.data_dir = args.input_dir.absolute().as_posix()
+    config.data_loader.size = (width, height)
+    
+    if args.detection:
+        config.model.mode = 'detection'
+    else:
+        config.model.mode = 'e2e'
+    
+    if not with_gpu and config.model.mode == 'e2e':
+        raise ValueError('E2E mode does not support CPU mode.')
+    
     data_module = ICDARDataModule(config)
     data_module.setup()
 
@@ -101,8 +122,7 @@ def main(args: argparse.Namespace):
             for i, p in enumerate(image_paths):
                 stem_key = pathlib.Path(p).stem
 
-                result = Result(p, [], [], pred_size=(geo_maps.shape[2] / config.data_loader.scale,
-                                                      geo_maps.shape[3] / config.data_loader.scale))
+                result = Result(p, [], [])
                 image_dict[stem_key] = dict(result=result,
                                             score_map=score_maps[i].detach().cpu().numpy())
             continue
@@ -119,9 +139,7 @@ def main(args: argparse.Namespace):
         for i, image_index in enumerate(mapping):
             stem_key = pathlib.Path(image_paths[image_index]).stem
             if stem_key not in image_dict:
-                result = Result(image_paths[image_index], [], [],
-                                pred_size=(geo_maps.shape[2]/config.data_loader.scale,
-                                           geo_maps.shape[3]/config.data_loader.scale))
+                result = Result(image_paths[image_index], [], [])
 
                 image_dict[stem_key] = dict(result=result,
                                             score_map=score_maps[image_index].detach().cpu().numpy())
@@ -157,8 +175,8 @@ def main(args: argparse.Namespace):
         if v.boxes:
             for box, transcript in zip(v.boxes, v.transcripts):
                 pts = box[:8].reshape(4, 2)
-                pts[:, 0] = pts[:, 0] * w / v.pred_size[1]
-                pts[:, 1] = pts[:, 1] * h / v.pred_size[0]
+                pts[:, 0] = pts[:, 0] * w / width
+                pts[:, 1] = pts[:, 1] * h / height
 
 
                 image = cv2.polylines(image, [pts], True, [0, 0, 255], thickness=2)
@@ -214,6 +232,7 @@ if __name__ == '__main__':
     parser.add_argument('--gpu', default=0, type=int, help='gpu device id')
     parser.add_argument('--bs', default=4, type=int, help='batch size')
     parser.add_argument('--workers', default=4, type=int, help='workers')
+    parser.add_argument('--size', default='2240 1260', type=str, help='image size')
     args = parser.parse_args()
     main(args)
 

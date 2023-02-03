@@ -1,19 +1,19 @@
 {
-    "name": "finetune_e2e_ghmc",
+    "name": "finetune_det_new",
     "cuda": true,
     "gpus": 2,
     "precision": 32,
     "backbone_weights": "./vision-0.9.0",
-    "pretrain": "/home/luning/dev/projects/FOTS.PyTorch/saved/finetune_det/checkpoints/epoch=154-step=18999.ckpt",
+    "pretrain": "/home/luning/dev/projects/FOTS.PyTorch/saved/finetune_det_new/checkpoints/epoch=79-step=5039.ckpt",
     "freeze_det": false,
     "data_loader": {
         "dataset":"icdar2015",
         "data_dir": "/data/ocr/det/icdar2015/detection",
-        "batch_size": 4,
+        "batch_size": 8,
         "shuffle": true,
-        "workers": 16,
+        "workers": 4,
         "max_transcripts_pre_batch": 16,
-        "size": 640,
+        "size": [640, 640],
         "scale": 0.25
     },
     "validation": {
@@ -30,29 +30,35 @@
 
     },
  
-    "optimizer_type": "Adam",
+    "optimizer_type": "AdamW",
     "optimizer": {
         "lr": 0.0001
     },
     "loss": "FOTSLoss",
     "metrics": ["fots_metric"],
     "trainer": {
-        "epochs": 300,
+        "epochs": 3000,
         "save_dir": "saved/",
-        "save_freq": 50,
         "verbosity": 2,
-        "monitor": "hmean",
-        "monitor_mode": "max",
+        "monitor": "val_loss",
+        "monitor_mode": "min",
         "log_every_n_steps": 1,
         "log_gpu_memory": "all",
         "overfit_batches": 0.0,
         "terminate_on_nan": true,
         "fast_dev_run": false,
-        "check_val_every_n_epoch": 20,
-        "every_n_train_steps": 1000
+        "every_n_train_steps": null,
+        "every_n_epochs": 5,
+        "check_val_every_n_epoch": 10,
+        "save_top_k": 2
     },
     "arch": "FOTSModel",
     "model": {
-        "mode": "e2e"
+        "mode": "e2e",
+        "recognizer": {
+            "dropout": 0.2,
+            "max_width": 80
+        }
     }
 }
+

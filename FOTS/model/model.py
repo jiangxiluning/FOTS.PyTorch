@@ -344,12 +344,12 @@ class FOTSModel(LightningModule):
                               labels=labels)
 
         loss = loss_dict['reg_loss'] + loss_dict['cls_loss'] + loss_dict['recog_loss']
-        self.log('val_loss', loss, logger=True, on_epoch=True, prog_bar=True)
-        self.log('val_reg_loss', loss_dict['reg_loss'], on_epoch=True, logger=True, prog_bar=True)
-        self.log('val_cls_loss', loss_dict['cls_loss'], on_epoch=True, logger=True, prog_bar=True)
-        self.log('val_recog_loss', loss_dict['recog_loss'], on_epoch=True, logger=True, prog_bar=True)
+        self.log('val_loss', loss, logger=True, on_epoch=True)
+        self.log('val_reg_loss', loss_dict['reg_loss'], on_epoch=True, logger=True)
+        self.log('val_cls_loss', loss_dict['cls_loss'], on_epoch=True, logger=True)
+        self.log('val_recog_loss', loss_dict['recog_loss'], on_epoch=True, logger=True)
 
-        return loss_dict
+        return loss
 
 class Recognizer(BaseModel):
 
@@ -367,14 +367,14 @@ class Recognizer(BaseModel):
 
 class Detector(BaseModel):
 
-    def __init__(self, config):
+    def __init__(self, config, stable_factor=640):
         super().__init__(config)
         # self.scoreMap = nn.Conv2d(32, 1, kernel_size=1)
         # self.geoMap = nn.Conv2d(32, 4, kernel_size=1)
         # self.angleMap = nn.Conv2d(32, 1, kernel_size=1)
         
         self.predict = nn.Conv2d(256, 6, kernel_size=1)
-        self.size = config.data_loader.size
+        self.stable_factor = stable_factor
 
     def forward(self, *input):
         final,  = input
@@ -383,7 +383,7 @@ class Detector(BaseModel):
 
         score = final[:,0:1,...]
         # 出来的是 normalise 到 0 -1 的值是到上下左右的距离，但是图像他都缩放到  640 * 640 了，但是 gt 里是算的绝对数值来的
-        geoMap = final[:,1:5,...] * self.size  # TODO: 640 is the image size
+        geoMap = final[:,1:5,...] * self.stable_factor
         angleMap = (final[:,5:,...] - 0.5) * math.pi / 2 # -pi/2  pi/2
 
         geometry = torch.cat([geoMap, angleMap], dim=1)

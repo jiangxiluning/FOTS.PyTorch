@@ -247,19 +247,19 @@ def crop_img(img, vertices, labels, length):
     return region, new_vertices
 
 
-def rotate_all_pixels(rotate_mat, anchor_x, anchor_y, length):
+def rotate_all_pixels(rotate_mat, anchor_x, anchor_y, size):
     '''get rotated locations of all pixels for next stages
     Input:
         rotate_mat: rotatation matrix
         anchor_x  : fixed x position
         anchor_y  : fixed y position
-        length    : length of image
+        size    : size of image
     Output:
         rotated_x : rotated x positions <numpy.ndarray, (length,length)>
         rotated_y : rotated y positions <numpy.ndarray, (length,length)>
     '''
-    x = np.arange(length)
-    y = np.arange(length)
+    x = np.arange(size[0])
+    y = np.arange(size[1])
     x, y = np.meshgrid(x, y)
     x_lin = x.reshape((1, x.size))
     y_lin = y.reshape((1, x.size))
@@ -312,14 +312,14 @@ def rotate_img(img, vertices, angle_range=10):
     return img, new_vertices
 
 
-def get_score_geo(img, vertices, labels, scale, length):
+def get_score_geo(img, vertices, labels, scale, size):
     '''generate score gt and geometry gt
     Input:
         img     : cv2 Image
         vertices: vertices of text regions <numpy.ndarray, (n,8)>
         labels  : 1->valid, 0->ignore, <numpy.ndarray, (n,)>
         scale   : feature map / image
-        length  : image length
+        size  : image size
     Output:
         score gt, geo gt, ignored
     '''
@@ -328,9 +328,11 @@ def get_score_geo(img, vertices, labels, scale, length):
     score_map = np.zeros((int(h * scale), int(w * scale), 1), np.float32)
     geo_map = np.zeros((int(h * scale), int(w * scale), 5), np.float32)
     ignored_map = np.zeros((int(h * scale), int(w * scale), 1), np.float32)
-
-    index = np.arange(0, length, int(1 / scale))
-    index_x, index_y = np.meshgrid(index, index)
+        
+    ix = np.arange(0, size[0], int(1 / scale))
+    iy = np.arange(0, size[1], int(1 / scale))
+    
+    index_x, index_y = np.meshgrid(ix, iy)
     ignored_polys = []
     polys = []
     rois = []
@@ -380,7 +382,7 @@ def get_score_geo(img, vertices, labels, scale, length):
 
         rotated_vertices = rotate_vertices(vertice, theta)
         x_min, x_max, y_min, y_max = get_boundary(rotated_vertices)
-        rotated_x, rotated_y = rotate_all_pixels(rotate_mat, vertice[0], vertice[1], length)
+        rotated_x, rotated_y = rotate_all_pixels(rotate_mat, vertice[0], vertice[1], size)
 
         d1 = rotated_y - y_min
         d1[d1 < 0] = 0

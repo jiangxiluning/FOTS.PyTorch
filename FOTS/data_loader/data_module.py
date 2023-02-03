@@ -33,8 +33,7 @@ class SynthTextDataModule(LightningDataModule):
         self.config = config
 
     def setup(self, stage: Optional[str] = None):
-        transform = Transform(is_training=True, output_size=(self.config.data_loader.size,
-                                                             self.config.data_loader.size))
+        transform = Transform(is_training=True, output_size=self.config.data_loader.size)
 
         factory = SynthTextDatasetFactory(data_root=self.config.data_loader.data_dir, val_size=0.2, test_size=0.0)
         self.train_ds = factory.train_ds(transform=transform,
@@ -42,8 +41,7 @@ class SynthTextDataModule(LightningDataModule):
                                          size=self.config.data_loader.size,
                                          scale=self.config.data_loader.scale)
 
-        transform = Transform(is_training=False, output_size=(self.config.data_loader.size,
-                                                             self.config.data_loader.size))
+        transform = Transform(is_training=False, output_size=self.config.data_loader.size)
         self.val_ds = factory.val_ds(transform=transform,
                                      vis=False,
                                      size=self.config.data_loader.size,
@@ -74,8 +72,7 @@ class ICDARDataModule(LightningDataModule):
         self.config = config
 
     def setup(self, stage: Optional[str] = None):
-        transform = Transform(is_training=True, output_size=(self.config.data_loader.size,
-                                                             self.config.data_loader.size))
+        transform = Transform(is_training=True, output_size=self.config.data_loader.size)
         self.train_ds = ICDARDataset(data_root=self.config.data_loader.data_dir + '/train',
                                      transform=transform,
                                      vis=False,
@@ -83,7 +80,7 @@ class ICDARDataModule(LightningDataModule):
                                      size=self.config.data_loader.size,
                                      scale=self.config.data_loader.scale)
 
-        transform = Transform(is_training=False)
+        transform = Transform(is_training=False, output_size=self.config.data_loader.size)
         self.val_ds = ICDARDataset(data_root=self.config.data_loader.data_dir + '/test',
                                    transform=transform,
                                    vis=False,
