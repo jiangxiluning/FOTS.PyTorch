@@ -65,7 +65,7 @@ Belows are **E2E Generic** benchmarking results on the ICDAR2015. I pretrained o
 
 
 
-| Name            | Backbone  | Scale (W * H) | Heamn |
+| Name            | Backbone  | Scale (W * H) | Hmean |
 |-----------------|-----------|---------------|-------|
 | FOTS (paper)    | Resnet 50 | 2240 * 1260   | 60.8  |
 | FOTS (ours)     | Resnet 50 | 2240 * 1260   | TBR   |
