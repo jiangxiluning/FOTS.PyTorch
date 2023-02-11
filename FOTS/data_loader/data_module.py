@@ -33,33 +33,31 @@ class SynthTextDataModule(LightningDataModule):
         self.config = config
 
     def setup(self, stage: Optional[str] = None):
-        transform = Transform(is_training=True, output_size=self.config.data_loader.size)
-
-        factory = SynthTextDatasetFactory(data_root=self.config.data_loader.data_dir, val_size=0.2, test_size=0.0)
+        factory = SynthTextDatasetFactory(data_root=self.config.data_loader.data_dir, val_size=0.01, test_size=0.0)
+        transform = Transform(is_training=True, output_size=self.config.data_loader.train.size)
         self.train_ds = factory.train_ds(transform=transform,
                                          vis=False,
-                                         size=self.config.data_loader.size,
+                                         size=self.config.data_loader.train.size,
                                          scale=self.config.data_loader.scale)
 
-        transform = Transform(is_training=False, output_size=self.config.data_loader.size)
+        transform = Transform(is_training=False, output_size=self.config.data_loader.val.size)
         self.val_ds = factory.val_ds(transform=transform,
                                      vis=False,
-                                     size=self.config.data_loader.size,
+                                     size=self.config.data_loader.val.size,
                                      scale=self.config.data_loader.scale)
-
 
     def train_dataloader(self) -> Any:
         return DataLoader(dataset=self.train_ds,
-                          batch_size=self.config.data_loader.batch_size,
-                          num_workers=self.config.data_loader.workers,
+                          batch_size=self.config.data_loader.train.batch_size,
+                          num_workers=self.config.data_loader.train.workers,
                           collate_fn=collate_fn,
-                          shuffle=self.config.data_loader.shuffle,
+                          shuffle=True,
                           pin_memory=False)
 
     def val_dataloader(self) -> Union[DataLoader, List[DataLoader]]:
         return DataLoader(dataset=self.val_ds,
-                          batch_size=self.config.data_loader.batch_size,
-                          num_workers=self.config.data_loader.workers,
+                          batch_size=self.config.data_loader.val.batch_size,
+                          num_workers=self.config.data_loader.val.workers,
                           collate_fn=collate_fn,
                           shuffle=False,
                           pin_memory=False)
@@ -72,34 +70,34 @@ class ICDARDataModule(LightningDataModule):
         self.config = config
 
     def setup(self, stage: Optional[str] = None):
-        transform = Transform(is_training=True, output_size=self.config.data_loader.size)
+        transform = Transform(is_training=True, output_size=self.config.data_loader.train.size)
         self.train_ds = ICDARDataset(data_root=self.config.data_loader.data_dir + '/train',
                                      transform=transform,
                                      vis=False,
                                      training=True,
-                                     size=self.config.data_loader.size,
+                                     size=self.config.data_loader.train.size,
                                      scale=self.config.data_loader.scale)
 
-        transform = Transform(is_training=False, output_size=self.config.data_loader.size)
+        transform = Transform(is_training=False, output_size=self.config.data_loader.val.size)
         self.val_ds = ICDARDataset(data_root=self.config.data_loader.data_dir + '/test',
                                    transform=transform,
                                    vis=False,
                                    training=False,
-                                   size=self.config.data_loader.size,
+                                   size=self.config.data_loader.val.size,
                                    scale=self.config.data_loader.scale)
 
     def train_dataloader(self) -> Any:
         return DataLoader(dataset=self.train_ds,
-                          batch_size=self.config.data_loader.batch_size,
-                          num_workers=self.config.data_loader.workers,
+                          batch_size=self.config.data_loader.train.batch_size,
+                          num_workers=self.config.data_loader.train.workers,
                           collate_fn=collate_fn,
-                          shuffle=self.config.data_loader.shuffle,
+                          shuffle=True,
                           pin_memory=False)
 
     def val_dataloader(self) -> Union[DataLoader, List[DataLoader]]:
         return DataLoader(dataset=self.val_ds,
-                          batch_size=self.config.data_loader.batch_size,
-                          num_workers=self.config.data_loader.workers,
+                          batch_size=self.config.data_loader.val.batch_size,
+                          num_workers=self.config.data_loader.val.workers,
                           collate_fn=collate_fn,
                           shuffle=False,
                           pin_memory=False)

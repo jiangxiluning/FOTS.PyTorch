@@ -4,24 +4,27 @@
     "gpus": [0, 1],
     "precision": 32,
     "backbone_weights": "./vision-0.9.0",
-    "pretrain": "/home/luning/dev/projects/FOTS.PyTorch/saved/pretrain_reg_freeze_det_nb/checkpoints/epoch=0-step=9999.ckpt",
+    "pretrain": "/home/luning/dev/projects/FOTS.PyTorch/saved/pretrain_reg_nb/checkpoints/epoch=3-step=259999.ckpt",
     "freeze_det": false,
     "data_loader": {
         "dataset":"synth800k",
         "data_dir": "/home/luning/dev/data/SynthText800k/detection/",
-        "batch_size": 4,
-        "shuffle": true,
-        "workers": 4,
-        "max_transcripts_pre_batch": 20,
-        "size": [640, 640],
-        "scale": 0.25
-    },
-    "validation": {
-
-        "scales": [800, 1000, 1333]
+        "scale": 0.25,
+        "train": {
+            "batch_size": 8,
+            "max_transcripts_per_batch": 16,
+            "workers": 4,
+            "size": [640, 640]
+        },
+        "val": {
+            "batch_size": 8,
+            "max_transcripts_per_batch": 16,
+            "workers": 4,
+            "size": [640, 640]
+        }
     },
     "lr_scheduler": {
-        "name": "",
+        "name": null,
         "args":
         {
             "gamma": 0.1,
@@ -37,7 +40,7 @@
     "loss": "FOTSLoss",
     "metrics": ["fots_metric"],
     "trainer": {
-        "epochs": 6,
+        "epochs": 10,
         "save_dir": "saved/",
         "save_freq": 1,
         "verbosity": 2,
@@ -49,7 +52,8 @@
         "terminate_on_nan": false,
         "fast_dev_run": false,
         "check_val_every_n_epoch": 1,
-        "every_n_train_steps": 10000
+        "save_top_k": 5,
+        "every_n_train_steps": 100
     },
     "arch": "FOTSModel",
     "model": {

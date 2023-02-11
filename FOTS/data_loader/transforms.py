@@ -22,7 +22,7 @@ from imgaug.augmentables.polys import Polygon, PolygonsOnImage
 
 class Transform:
     def __init__(self,
-                 long_sizes: typing.Iterable = (640, 800, 1333, 2560),
+                 long_sizes: typing.Iterable = (640, 2560),
                  angles: typing.Iterable = (-10, 10),
                  height_ratios: typing.Iterable = (0.8, 1.2),
                  cropped_size: tuple = (640, 640),
@@ -43,14 +43,12 @@ class Transform:
     def __call__(self, *args, **kwargs) -> typing.Tuple[np.ndarray, typing.List[Polygon]]:
 
         if self.is_training:
-            resize = iaa.Resize(size=dict(longer_side=self.long_sizes,
-                                          width='keep-aspect-ratio'))
+            resize = iaa.Resize(size={"longer-side": self.long_sizes})
             rotate = iaa.Rotate(rotate=self.angles, fit_output=True)
             resize_height = iaa.Resize(size=dict(height=self.height_ratios,
                                                  width='keep'))
             crop = iaa.CropToFixedSize(width=self.cropped_size[0], height=self.cropped_size[1])
             fix_resize = iaa.Resize({"height": self.output_size[1], "width": self.output_size[0]})
-
 
             # blur = iaa.GaussianBlur()
             # blur = iaa.Sometimes(p=self.blur_prob,

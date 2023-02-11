@@ -26,7 +26,9 @@ def main(config, resume: bool):
         if config.pretrain:
             assert pathlib.Path(config.pretrain).exists()
             logger.info('Finetune with: {}'.format(config.pretrain))
-            model = model.load_from_checkpoint(config.pretrain, config=config, map_location='cpu')
+            model = model.load_from_checkpoint(config.pretrain,
+                                               config=config,
+                                               map_location='cpu')
             resume_ckpt = None
         else:
             resume_ckpt = None
@@ -37,26 +39,22 @@ def main(config, resume: bool):
         data_module = ICDARDataModule(config)
     data_module.setup()
 
-    root_dir = str(pathlib.Path(config.trainer.save_dir).absolute() / config.name)
-    
-    
+    root_dir = str(
+        pathlib.Path(config.trainer.save_dir).absolute() / config.name)
+
     every_n_train_steps = config.trainer.get('every_n_train_steps', None)
     every_n_epochs = config.trainer.get('every_n_epochs', None)
-    
-    if (every_n_train_steps is None) and (every_n_epochs is None):
-        logger.warning('None of checkpoint stratedge is set. Use 1 for every_n_epochs.')
-        every_n_epochs = 1
-        
-    save_top_k = config.trainer.get('save_top_k', 1)
-    
-    
-    checkpoint_callback = ModelCheckpoint(dirpath=root_dir + '/checkpoints', 
-                                          monitor=config.trainer.monitor,
-                                          mode=config.trainer.monitor_mode,
-                                          save_top_k=save_top_k,
-                                          every_n_train_steps=every_n_train_steps,
-                                          every_n_val_epochs=every_n_epochs
-                                          )
+    save_top_k = config.trainer.get('save_top_k', None)
+    monitor = config.trainer.get('monitor', None)
+    mode = config.trainer.get('monitor_mode', 'min')
+
+    checkpoint_callback = ModelCheckpoint(
+        dirpath=root_dir + '/checkpoints',
+        monitor=monitor,
+        mode=mode,
+        save_top_k=save_top_k,
+        every_n_train_steps=every_n_train_steps,
+        every_n_val_epochs=every_n_epochs)
     wandb_dir = pathlib.Path(root_dir) / 'wandb'
     if not wandb_dir.exists():
         wandb_dir.mkdir(parents=True, exist_ok=True)
@@ -68,12 +66,12 @@ def main(config, resume: bool):
         gpus = 0
     else:
         gpus = config.gpus
-        
+
     # if config.model.mode == 'detection':
     #     find_unused_parameters = True
     # else:
     #     find_unused_parameters = False
-        
+
     find_unused_parameters = True
 
     trainer = Trainer(
@@ -100,9 +98,14 @@ def main(config, resume: bool):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PyTorch Template')
-    parser.add_argument('-c', '--config', default=None, type=str,
+    parser.add_argument('-c',
+                        '--config',
+                        default=None,
+                        type=str,
                         help='config file path (default: None)')
-    parser.add_argument('-r', '--resume', action='store_true',
+    parser.add_argument('-r',
+                        '--resume',
+                        action='store_true',
                         help='path to latest checkpoint (default: None)')
 
     args = parser.parse_args()

@@ -1,31 +1,34 @@
 {
-    "name": "finetune_det_new",
+    "name": "finetune",
     "cuda": true,
     "gpus": 2,
     "precision": 32,
     "backbone_weights": "./vision-0.9.0",
-    "pretrain": "/home/luning/dev/projects/FOTS.PyTorch/saved/finetune_det_new/checkpoints/epoch=79-step=5039.ckpt",
+    "pretrain": "/home/luning/dev/projects/FOTS.PyTorch/saved/finetune/checkpoints/epoch=1939-step=122199.ckpt",
     "freeze_det": false,
     "data_loader": {
         "dataset":"icdar2015",
         "data_dir": "/data/ocr/det/icdar2015/detection",
-        "batch_size": 8,
-        "shuffle": true,
-        "workers": 4,
-        "max_transcripts_pre_batch": 16,
-        "size": [640, 640],
-        "scale": 0.25
-    },
-    "validation": {
-
-        "scales": [800, 1000, 1333]
+        "scale": 0.25,
+        "train": {
+            "batch_size": 8,
+            "max_transcripts_per_batch": 16,
+            "workers": 4,
+            "size": [640, 640]
+        },
+        "val": {
+            "batch_size": 2,
+            "max_transcripts_per_batch": 8,
+            "workers": 4,
+            "size": [1280, 720]
+        }
     },
     "lr_scheduler": {
         "name": "StepLR",
         "args":
         {
             "gamma": 0.1,
-            "step_size": 2000
+            "step_size": 3000
         }
 
     },
@@ -37,20 +40,20 @@
     "loss": "FOTSLoss",
     "metrics": ["fots_metric"],
     "trainer": {
-        "epochs": 3000,
+        "epochs": 5000,
         "save_dir": "saved/",
         "verbosity": 2,
-        "monitor": "val_loss",
+        "monitor": "loss",
         "monitor_mode": "min",
         "log_every_n_steps": 1,
         "log_gpu_memory": "all",
         "overfit_batches": 0.0,
         "terminate_on_nan": true,
         "fast_dev_run": false,
-        "every_n_train_steps": null,
-        "every_n_epochs": 5,
-        "check_val_every_n_epoch": 10,
-        "save_top_k": 2
+        "every_n_train_steps": 100,
+        "every_n_epochs": null,
+        "check_val_every_n_epoch": 5,
+        "save_top_k": 5
     },
     "arch": "FOTSModel",
     "model": {
