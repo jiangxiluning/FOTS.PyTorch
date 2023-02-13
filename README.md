@@ -12,24 +12,18 @@ This is a PyTorch implementation of [FOTS](https://arxiv.org/abs/1801.01671).
  - [x] wandb
  - [x] pytorch_lightning
  - [x] eval with different scales
+ - [ ] OHEM
 
 # Instruction
 
 ## Requirements
-
-1. build tools
-
-   ```
-   ./build.sh
-   ```
-
-2. prepare Dataset
-
-3. create virtual env, you may need conda
    ```
    conda create --name fots --file spec-file.txt
    conda activate fots
    pip install -r reqs.txt
+
+   cd FOTS/rroi_align
+   python build.py develop
    ```
 
 
@@ -46,31 +40,30 @@ This is a PyTorch implementation of [FOTS](https://arxiv.org/abs/1801.01671).
 
 ```
 python eval.py 
--c
-finetune.json
--m
-<your ckpt>
--i
-<icdar2015 folder contains train and test>
+-c finetune.json
+-m <your ckpt>
+-i <icdar2015 folder contains train and test>
 --detection    
--o
-./results
+-o ./results
 --cuda
+--size "1280 720"
+--bs 2
+--gpu 1
 ```
 
 with `--detection` flag to evaluate detection only or without flag to evaluate e2e
 
 ## Benchmarking and Models 
-Belows are **E2E Generic** benchmarking results on the ICDAR2015. I pretrained on Synthtext (7 epochs).  [Pretrained model](https://pan.baidu.com/s/18RR9J7TvuZn4LUCv2eJmHQ) (code: 68ta). Finetuned model will be released soon.
+Belows are **E2E Generic** benchmarking results on the ICDAR2015. I pretrained on Synthtext (7 epochs).  [Pretrained model](https://pan.baidu.com/s/18RR9J7TvuZn4LUCv2eJmHQ) (code: 68ta). [Finetuned (5000 epochs) model](https://pan.baidu.com/s/14UnlBP5xfRXx90bdlIBAEg) (code: s38c).
 
 
 
 | Name            | Backbone  | Scale (W * H) | Hmean |
 |-----------------|-----------|---------------|-------|
 | FOTS (paper)    | Resnet 50 | 2240 * 1260   | 60.8  |
-| FOTS (ours)     | Resnet 50 | 2240 * 1260   | TBR   |
+| FOTS (ours)     | Resnet 50 | 2240 * 1260   | 46.2 |
 | FOTS RT (paper) | Resnet 34 | 1280 * 720    | 51.4  |
-| FOTS RT (Ours) | Resnet 50 | 1280 * 720    | TBR   |
+| FOTS RT (Ours) | Resnet 50 | 1280 * 720    | 47   |
 
 
 

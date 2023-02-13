@@ -4,7 +4,7 @@
     "gpus": 2,
     "precision": 32,
     "backbone_weights": "./vision-0.9.0",
-    "pretrain": "/home/luning/dev/projects/FOTS.PyTorch/saved/finetune/checkpoints/epoch=1939-step=122199.ckpt",
+    "pretrain": "/home/luning/dev/projects/FOTS.PyTorch/saved/finetune/checkpoints/epoch=4086-step=257399.ckpt",
     "freeze_det": false,
     "data_loader": {
         "dataset":"icdar2015",

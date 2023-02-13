@@ -1,12 +1,12 @@
-#   ______                                           __                 
-#  /      \                                         /  |                
-# /$$$$$$  | __   __   __   ______   _______        $$ |       __    __ 
+#   ______                                           __
+#  /      \                                         /  |
+# /$$$$$$  | __   __   __   ______   _______        $$ |       __    __
 # $$ |  $$ |/  | /  | /  | /      \ /       \       $$ |      /  |  /  |
 # $$ |  $$ |$$ | $$ | $$ |/$$$$$$  |$$$$$$$  |      $$ |      $$ |  $$ |
 # $$ |  $$ |$$ | $$ | $$ |$$    $$ |$$ |  $$ |      $$ |      $$ |  $$ |
 # $$ \__$$ |$$ \_$$ \_$$ |$$$$$$$$/ $$ |  $$ |      $$ |_____ $$ \__$$ |
-# $$    $$/ $$   $$   $$/ $$       |$$ |  $$ |      $$       |$$    $$/ 
-#  $$$$$$/   $$$$$/$$$$/   $$$$$$$/ $$/   $$/       $$$$$$$$/  $$$$$$/ 
+# $$    $$/ $$   $$   $$/ $$       |$$ |  $$ |      $$       |$$    $$/
+#  $$$$$$/   $$$$$/$$$$/   $$$$$$$/ $$/   $$/       $$$$$$$$/  $$$$$$/
 #
 # File: detect.py
 # Author: Owen Lu
@@ -23,9 +23,12 @@ import math
 import numpy as np
 from . import lanms
 
+
 def get_rotate_mat(theta):
     '''positive theta value means rotate clockwise'''
-    return np.array([[math.cos(theta), -math.sin(theta)], [math.sin(theta), math.cos(theta)]])
+    return np.array([[math.cos(theta), -math.sin(theta)],
+                     [math.sin(theta), math.cos(theta)]])
+
 
 def resize_img(img):
     '''resize image to be divisible by 32
@@ -46,7 +49,10 @@ def resize_img(img):
 def load_pil(img):
     '''convert PIL Image to torch.Tensor
     '''
-    t = transforms.Compose([transforms.ToTensor(), transforms.Normalize(mean=(0.5,0.5,0.5),std=(0.5,0.5,0.5))])
+    t = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
+    ])
     return t(img).unsqueeze(0)
 
 
@@ -80,8 +86,8 @@ def restore_polys(valid_pos, valid_geo, score_shape, scale=4):
     polys = []
     index = []
     valid_pos *= scale
-    d = valid_geo[:4, :] # 4 x N
-    angle = valid_geo[4, :] # N,
+    d = valid_geo[:4, :]  # 4 x N
+    angle = valid_geo[4, :]  # N,
 
     for i in range(valid_pos.shape[0]):
         x = valid_pos[i, 0]
@@ -96,12 +102,15 @@ def restore_polys(valid_pos, valid_geo, score_shape, scale=4):
         temp_y = np.array([[y_min, y_min, y_max, y_max]]) - y
         coordidates = np.concatenate((temp_x, temp_y), axis=0)
         res = np.dot(rotate_mat, coordidates)
-        res[0,:] += x
-        res[1,:] += y
+        res[0, :] += x
+        res[1, :] += y
 
         if is_valid_poly(res, score_shape, scale):
             index.append(i)
-            polys.append([res[0,0], res[1,0], res[0,1], res[1,1], res[0,2], res[1,2],res[0,3], res[1,3]])
+            polys.append([
+                res[0, 0], res[1, 0], res[0, 1], res[1, 1], res[0, 2],
+                res[1, 2], res[0, 3], res[1, 3]
+            ])
     return np.array(polys), index
 
 
@@ -115,14 +124,14 @@ def get_boxes(score, geo, score_thresh=0.9, nms_thresh=0.2):
     Output:
         boxes       : final polys <numpy.ndarray, (n,9)>
     '''
-    score = score[0,:,:]
-    xy_text = np.argwhere(score > score_thresh) # n x 2, format is [r, c]
+    score = score[0, :, :]
+    xy_text = np.argwhere(score > score_thresh)  # n x 2, format is [r, c]
     if xy_text.size == 0:
         return None
 
     xy_text = xy_text[np.argsort(xy_text[:, 0])]
-    valid_pos = xy_text[:, ::-1].copy() # n x 2, [x, y]
-    valid_geo = geo[:, xy_text[:, 0], xy_text[:, 1]] # 5 x n
+    valid_pos = xy_text[:, ::-1].copy()  # n x 2, [x, y]
+    valid_geo = geo[:, xy_text[:, 0], xy_text[:, 1]]  # 5 x n
     polys_restored, index = restore_polys(valid_pos, valid_geo, score.shape)
     if polys_restored.size == 0:
         return None
@@ -145,8 +154,8 @@ def adjust_ratio(boxes, ratio_w, ratio_h):
     '''
     if boxes is None or boxes.size == 0:
         return None
-    boxes[:,[0,2,4,6]] /= ratio_w
-    boxes[:,[1,3,5,7]] /= ratio_h
+    boxes[:, [0, 2, 4, 6]] /= ratio_w
+    boxes[:, [1, 3, 5, 7]] /= ratio_h
     return np.around(boxes)
 
 
@@ -162,7 +171,9 @@ def detect(img, model, device):
     img, ratio_h, ratio_w = resize_img(img)
     with torch.no_grad():
         score, geo = model(load_pil(img).to(device))
-    boxes = get_boxes(score.squeeze(0).cpu().numpy(), geo.squeeze(0).cpu().numpy())
+    boxes = get_boxes(
+        score.squeeze(0).cpu().numpy(),
+        geo.squeeze(0).cpu().numpy())
     return adjust_ratio(boxes, ratio_w, ratio_h)
 
 
@@ -174,7 +185,9 @@ def plot_boxes(img, boxes):
 
     draw = ImageDraw.Draw(img)
     for box in boxes:
-        draw.polygon([box[0], box[1], box[2], box[3], box[4], box[5], box[6], box[7]], outline=(0,255,0))
+        draw.polygon(
+            [box[0], box[1], box[2], box[3], box[4], box[5], box[6], box[7]],
+            outline=(0, 255, 0))
     return img
 
 
@@ -187,13 +200,21 @@ def detect_dataset(model, device, test_img_path, submit_path):
         submit_path  : submit result for evaluation
     '''
     img_files = os.listdir(test_img_path)
-    img_files = sorted([os.path.join(test_img_path, img_file) for img_file in img_files])
+    img_files = sorted(
+        [os.path.join(test_img_path, img_file) for img_file in img_files])
 
     for i, img_file in enumerate(img_files):
         print('evaluating {} image'.format(i), end='\r')
         boxes = detect(Image.open(img_file), model, device)
         seq = []
         if boxes is not None:
-            seq.extend([','.join([str(int(b)) for b in box[:-1]]) + '\n' for box in boxes])
-        with open(os.path.join(submit_path, 'res_' + os.path.basename(img_file).replace('.jpg','.txt')), 'w') as f:
+            seq.extend([
+                ','.join([str(int(b)) for b in box[:-1]]) + '\n'
+                for box in boxes
+            ])
+        with open(
+                os.path.join(
+                    submit_path, 'res_' +
+                    os.path.basename(img_file).replace('.jpg', '.txt')),
+                'w') as f:
             f.writelines(seq)
