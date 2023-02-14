@@ -52,7 +52,7 @@ class SynthTextDataModule(LightningDataModule):
                           num_workers=self.config.data_loader.train.workers,
                           collate_fn=collate_fn,
                           shuffle=True,
-                          pin_memory=False)
+                          pin_memory=True)
 
     def val_dataloader(self) -> Union[DataLoader, List[DataLoader]]:
         return DataLoader(dataset=self.val_ds,
@@ -60,7 +60,7 @@ class SynthTextDataModule(LightningDataModule):
                           num_workers=self.config.data_loader.val.workers,
                           collate_fn=collate_fn,
                           shuffle=False,
-                          pin_memory=False)
+                          pin_memory=True)
 
 
 class ICDARDataModule(LightningDataModule):
@@ -92,7 +92,7 @@ class ICDARDataModule(LightningDataModule):
                           num_workers=self.config.data_loader.train.workers,
                           collate_fn=collate_fn,
                           shuffle=True,
-                          pin_memory=False)
+                          pin_memory=True)
 
     def val_dataloader(self) -> Union[DataLoader, List[DataLoader]]:
         return DataLoader(dataset=self.val_ds,
@@ -100,4 +100,4 @@ class ICDARDataModule(LightningDataModule):
                           num_workers=self.config.data_loader.val.workers,
                           collate_fn=collate_fn,
                           shuffle=False,
-                          pin_memory=False)
+                          pin_memory=True)
