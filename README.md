@@ -65,6 +65,12 @@ Belows are **E2E Generic** benchmarking results on the ICDAR2015. I pretrained o
 | FOTS RT (paper) | Resnet 34 | 1280 * 720    | 51.4  |
 | FOTS RT (Ours) | Resnet 50 | 1280 * 720    | 47   |
 
+## Samples
+
+![img_295.jpg](https://s2.loli.net/2023/02/14/PiJWMIoFvGtsqu8.jpg)
+![img_486.jpg](https://s2.loli.net/2023/02/14/3p8PeyqFCUYtOvg.jpg)
+![img_497.jpg](https://s2.loli.net/2023/02/14/mODBYHzr7gle6Qq.jpg)
+
 
 
 ## Acknowledgement
